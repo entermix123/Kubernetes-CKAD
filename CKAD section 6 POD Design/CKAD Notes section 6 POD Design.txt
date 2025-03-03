@@ -1,0 +1,71 @@
+CONTENT
+
+Section 6 106. Practice Test - CornJobs
+Section 6 93. Practice Test - Labels, Selectors
+Section 6 94. Rolling Updates & Rollback in Deployments
+Section 6 95. Updating a Deployment
+Section 6 96. Demo Deployment
+Section 6 98. Practice Test - Rolling Updates & Rollback
+Section 6 99. Deployment Strategy - Blue Green
+Section 6 100. Deployment Strategy - Canary
+Section 6 102. Practice Test - Deployment Strategies
+Section 6 103. Jobs
+Section 6 104. CornJobs
+Section 6 106. Practice Test - Jobs and CornJobs
+
+
+===============================================
+Section 6 91. Labels, Selectors and Annotations
+===============================================
+
+===============================================
+Section 6 93. Practice Test - Labels, Selectors
+===============================================
+
+=======================================================
+Section 6 94. Rolling Updates & Rollback in Deployments
+=======================================================
+
+===================================
+Section 6 95. Updating a Deployment
+===================================
+
+=============================
+Section 6 96. Demo Deployment
+=============================
+
+========================================================
+Section 6 98. Practice Test - Rolling Updates & Rollback
+========================================================
+
+==============================================
+Section 6 99. Deployment Strategy - Blue Green
+==============================================
+
+===========================================
+Section 6 100. Deployment Strategy - Canary
+===========================================
+
+====================================================
+Section 6 102. Practice Test - Deployment Strategies
+====================================================
+
+===================
+Section 6 103. Jobs
+===================
+
+=======================
+Section 6 104. CornJobs
+=======================
+
+================================================
+Section 6 106. Practice Test - Jobs and CornJobs
+================================================
+
+
+
+
+
+
+
+

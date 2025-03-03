@@ -1,0 +1,74 @@
+CONTENT
+
+Section 8 122. Volumes
+Section 8 123. Persistent VolumesSection 8 124. Persistent Volume Claims
+Section 8 125. Using PVC in Pods
+Section 8 xxx. Volumes Quiz
+Section 8 127. Practice Test - Persistent Volumes
+Section 8 128. Note on optional topics
+Section 8 129. Storage Classes
+Section 8 130. Practice Test - Storage Class
+Section 8 131. Why Stateful Sets?
+Section 8 132. Stateful Sets Introduction
+Section 8 133. Headless Services
+Section 8 133. Storage in StefulSets
+
+
+======================
+Section 8 122. Volumes
+======================
+
+=================================
+Section 8 123. Persistent Volumes
+=================================
+
+=======================================
+Section 8 124. Persistent Volume Claims
+=======================================
+
+================================
+Section 8 125. Using PVC in Pods
+================================
+
+===========================
+Section 8 xxx. Volumes Quiz
+===========================
+
+=================================================
+Section 8 127. Practice Test - Persistent Volumes
+=================================================
+
+======================================
+Section 8 128. Note on optional topics
+======================================
+
+==============================
+Section 8 129. Storage Classes
+==============================
+
+============================================
+Section 8 130. Practice Test - Storage Class
+============================================
+
+=================================
+Section 8 131. Why Stateful Sets?
+=================================
+
+=========================================
+Section 8 132. Stateful Sets Introduction
+=========================================
+
+================================
+Section 8 133. Headless Services
+================================
+
+====================================
+Section 8 133. Storage in StefulSets
+====================================
+
+
+
+
+
+
+

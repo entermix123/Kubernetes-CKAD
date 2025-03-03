@@ -1,0 +1,193 @@
+COURSE CONTENT
+
+
+Section 2 Core Contsepts
+========================
+Section 2 9. Recap - Kubernetes Architecture
+Section 2 10. Docker vs ContainerD
+Section 2 11. Recap - PODS
+Section 2 12. YAML Basics
+Section 2 13. Recap - Pods with YAML
+Section 2 14. Recap - Demo - Creating Pods with YAML
+Section 2 15. Note!
+Section 2 20. Practice Test - Pods
+Section 2 21. Edit Pods
+Section 2 22. Recap - ReplicaSets
+Section 2 24. Practice Test - ReplicaSets
+Section 2 25. Recap - Deployments
+Section 2 27. Practice Test - Deployments
+Section 2 28. Certification Tip: Formatting Output with kubectl
+Section 2 29. Recap - Namepsaces
+Section 2 31. Practice Test - Namespaces
+Section 2 32. Certification Tip: Imperative Commands
+Section 2 34. Practice Test - Imperative Commands
+
+
+Section 3 Configuration
+=======================
+Section 3 37. Define, build and modify container images
+Section 3 38. Practice Test - Docker Images
+Section 3 39. Commands and Arguments in Docker
+Section 3 40. Commands and Arguments in Kubernetes
+Section 3 41. A quick note on editing Pods and Deployments
+Section 3 43. Practice Test - Commands and Arguments
+Section 3 44. Environment Variables
+Section 3 45. ConfigMaps
+Section 3 47. Practice Test - ConfigMaps
+Section 3 48. Secrets
+Section 3 49. A quick note about secrets
+Section 3 50. Additional Resources
+Section 3 52. Practice Test - Secrets
+Section 3 53. Demo - Encrypting Secret Data at Rest
+Section 3 54. Docker Security
+Section 3 55. Security Context
+Section 3 57. Practice Test - Security Context
+Section 3 58. Service Account
+Section 3 60. Practice Test - Service Account
+Section 3 61. Resource Requirements
+Section 3 63. Practice Test - Resource Requirements
+Section 3 64. Taints and Tolerations
+Section 3 66. Practice Test - Taints and Tolerations
+Section 3 67. Node Selectors
+Section 3 68. Node Affinity
+Section 3 70. Practice Test - Node Affinity
+Section 3 71. Taints and Tolerations vs Node Affinity
+Section 3 73. Certification Tips - Student Tips
+
+
+Section 4 Multi-Container Pods
+==============================
+Section 4 75. Multi-Container Pods
+Section 4 77. Practice Test - Multi-Container Pods
+Section 4 78. Init Containers
+Section 4 80. Practice Test - Init Containers
+
+
+Section 5 Observability
+=======================
+Section 5 81. Readiness and Liveness Probes
+Section 5 82. Liveness Probes
+Section 5 84. Practice Test - Readiness and Liveness Probes
+Section 5 85. Container Logging
+Section 5 87. Practice Test - Container Logging
+Section 5 88. Monitor and Debug Applications
+Section 5 890. Practice Test - Monitoring
+
+
+Section 6 POD Design
+====================
+Section 6 106. Practice Test - CornJobs
+Section 6 93. Practice Test - Labels, Selectors
+Section 6 94. Rolling Updates & Rollback in Deployments
+Section 6 95. Updating a Deployment
+Section 6 96. Demo Deployment
+Section 6 98. Practice Test - Rolling Updates & Rollback
+Section 6 99. Deployment Strategy - Blue Green
+Section 6 100. Deployment Strategy - Canary
+Section 6 102. Practice Test - Deployment Strategies
+Section 6 103. Jobs
+Section 6 104. CornJobs
+Section 6 106. Practice Test - Jobs and CornJobs
+
+
+Section 7 Services & Networking
+===============================
+Section 7 107. Services
+Section 7 108. Services - ClusterIP
+Section 7 110. Practice Test - Services
+Section 7 111. Ingress Networking
+Section 7 112. Article: Ingress
+Section 7 114. Practice Test - Ingress Networking - 1
+Section 7 115. FAQ - What is the rewrite-target option?
+Section 7 117. Practice Test - Ingress Networking - 2
+Section 7 118. Network Policies
+Section 7 119. Developing Network Policies
+Section 7 121. Practice Test - Network Policies
+
+
+Section 8 State Persistance
+===========================
+Section 8 122. Volumes
+Section 8 123. Persistent VolumesSection 8 124. Persistent Volume Claims
+Section 8 125. Using PVC in Pods
+Section 8 xxx. Volumes Quiz
+Section 8 127. Practice Test - Persistent Volumes
+Section 8 128. Note on optional topics
+Section 8 129. Storage Classes
+Section 8 130. Practice Test - Storage Class
+Section 8 131. Why Stateful Sets?
+Section 8 132. Stateful Sets Introduction
+Section 8 133. Headless Services
+Section 8 133. Storage in StefulSets
+
+
+Section 9 Security
+==================
+Section 9 135. Authentication, Authorization and Admission Control
+Section 9 136. Authentication
+Section 9 137. Article on Setting up Basic Authentication
+Section 9 138. Important Updates
+Section 9 139. KubeConfig
+Section 9 141. Practice Test - KubeConfig
+Section 9 142. API Groups
+Section 9 143. Authorization
+Section 9 144. Role Based Access Control (RBAC)
+Section 9 146. Practice Test - Role Based Access Control (RBAC)
+Section 9 147. Cluster Roles
+Section 9 149. Practice Test - Cluster Roles
+Section 9 150. Admission Controllers
+Section 9 152. Labs - Admission Controllers
+Section 9 153. Validating and Mutating Admission Conteollers
+Section 9 155. Labs - Validating and Mutating Admission Conteollers
+Section 9 156. API Versions
+Section 9 157. API Deprecations
+Section 9 159. Labs - API Versions/Deprecations
+Section 9 160. Custom Resource Definition
+Section 9 161. Practice Test - Custom Resource Definition
+Section 9 162. Custom Controllers
+Section 9 163. Operator Framework
+
+
+Section 10 Helm Fundamentals
+============================
+Section 10 164. Helm Introduction
+Section 10 165. Install Helm
+Section 10 167. Labs - Install Helm
+Section 10 168. Helm Concepts
+Section 10 170. Labs - Helm Concepts
+
+
+Section 11 Kubernetes Challanges
+================================
+Section 11 171. Kubernetes Challanges
+
+
+Section 12 Certification Tips
+=============================
+Section 12 172. Time Management
+Section 12 173. Additional Tips
+
+
+Section 13 Lighring Labs
+========================
+Section 13 174. Introduction Lighting Labs
+Section 13 176. Lighting Lab - 1
+Section 13 178. Lighting Lab - 2
+
+
+Section 14 Mock Exams
+=====================
+Section 14 179. Mock Exam 1
+Section 14 181. Mock Exam 2
+Section 14 183. Bonus Lecture: Conclusion
+Section 14 184. Register for Certification
+Section 14 185. Kubernetes Update and Project Videos - Your Essential Guide
+
+
+
+
+
+
+
+
+

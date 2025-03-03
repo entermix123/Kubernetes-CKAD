@@ -1,0 +1,122 @@
+CONTENT
+
+Section 9 135. Authentication, Authorization and Admission Control
+Section 9 136. Authentication
+Section 9 137. Article on Setting up Basic Authentication
+Section 9 138. Important Updates
+Section 9 139. KubeConfig
+Section 9 141. Practice Test - KubeConfig
+Section 9 142. API Groups
+Section 9 143. Authorization
+Section 9 144. Role Based Access Control (RBAC)
+Section 9 146. Practice Test - Role Based Access Control (RBAC)
+Section 9 147. Cluster Roles
+Section 9 149. Practice Test - Cluster Roles
+Section 9 150. Admission Controllers
+Section 9 152. Labs - Admission Controllers
+Section 9 153. Validating and Mutating Admission Conteollers
+Section 9 155. Labs - Validating and Mutating Admission Conteollers
+Section 9 156. API Versions
+Section 9 157. API Deprecations
+Section 9 159. Labs - API Versions/Deprecations
+Section 9 160. Custom Resource Definition
+Section 9 161. Practice Test - Custom Resource Definition
+Section 9 162. Custom Controllers
+Section 9 163. Operator Framework
+
+
+==================================================================
+Section 9 135. Authentication, Authorization and Admission Control
+==================================================================
+
+=============================
+Section 9 136. Authentication
+=============================
+
+=========================================================
+Section 9 137. Article on Setting up Basic Authentication
+=========================================================
+
+================================
+Section 9 138. Important Updates
+================================
+
+=========================
+Section 9 139. KubeConfig
+=========================
+
+=========================================
+Section 9 141. Practice Test - KubeConfig
+=========================================
+
+=========================
+Section 9 142. API Groups
+=========================
+
+============================
+Section 9 143. Authorization
+============================
+
+===============================================
+Section 9 144. Role Based Access Control (RBAC)
+===============================================
+
+===============================================================
+Section 9 146. Practice Test - Role Based Access Control (RBAC)
+===============================================================
+
+============================
+Section 9 147. Cluster Roles
+============================
+
+============================================
+Section 9 149. Practice Test - Cluster Roles
+============================================
+
+====================================
+Section 9 150. Admission Controllers
+====================================
+
+===========================================
+Section 9 152. Labs - Admission Controllers
+===========================================
+
+============================================================
+Section 9 153. Validating and Mutating Admission Conteollers
+============================================================
+
+===================================================================
+Section 9 155. Labs - Validating and Mutating Admission Conteollers
+===================================================================
+
+===========================
+Section 9 156. API Versions
+===========================
+
+===============================
+Section 9 157. API Deprecations
+===============================
+
+===============================================
+Section 9 159. Labs - API Versions/Deprecations
+===============================================
+
+=========================================
+Section 9 160. Custom Resource Definition
+=========================================
+
+=========================================================
+Section 9 161. Practice Test - Custom Resource Definition
+=========================================================
+
+=================================
+Section 9 162. Custom Controllers
+=================================
+
+=================================
+Section 9 163. Operator Framework
+=================================
+
+
+
+
