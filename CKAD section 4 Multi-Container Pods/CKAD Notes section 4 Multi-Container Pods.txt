@@ -983,7 +983,7 @@ Init Containers:
 -----------------------------------------------
 
 
-Edit the pod and ix te command in the 'InitContainers' section
+Edit the pod and fix the command in the 'InitContainers' section
 	terminal --> k edit pod orange
 
 # result:
@@ -993,7 +993,7 @@ Edit the pod and ix te command in the 'InitContainers' section
   - command:
     - sh
     - -c
-    - sleep 2;
+    - sleep 2;					# fixed
 ...
 ------------------------------------
 save changes - escape, :wq!, enter
