@@ -14,10 +14,203 @@ Section 5 890. Practice Test - Monitoring
 Section 5 81. Readiness and Liveness Probes
 ===========================================
 
+There 2 main pod lifecycle properties 
+	- Pod Status
+	- Pod Condifitons
+
+Pod Status - where the pod is in its lifecycle
+----------
+	- Pending state 
+		- When the pod is created it is in pending state. When the scheduller tries to figure out where to place the pod. 
+		- If the sceduller cannot place the pod, the pod remains in pending state
+	- Container Creating status
+		- The pod is placed on node and images are pulled and deployed on the pod.
+	- Running state
+		- when all images are pulled and all containers are running
+		- stays in the running state until the program completes or is terminated
+
+Pod Condifitons - array o ftrue or false values taht tell us the state of a pod
+---------------
+	- PodScheduled		true/false
+	- Initialized		true/false
+	- ContainerReady	true/false
+	- Ready			true/false
+
+Show conditions for pod
+	terminal --> kubectl describe pod [pod name]
+
+	# we can see the conditions under "Conditions" section.
+
+
+Show pod "READY" condifiton for pod
+	terminal --> kubectl get pods
+
+	# we can see the "READY" column condition in the result 
+
+The 'READY' condition mean that the pod is ready to receive user's traffic.
+
+When the containers in the pod are ready, Kubernetes indicates that the service can start pass traffic to the pod. However there may be 10-20 seconds delay (warm up) when Web Server or DB Server are actually available for user's traffic. We must be aware of this delay.
+
+
+
+Readiness Probes
+================
+
+These probes test the pods and services if they are actually ready for user's traffic. Some of the tests are:
+	- HTTP Test - /api/ready 	- for api service
+	- TCP Test - 3306		- for DB port listening
+	- Exec Command			- test custom script that will exit successfully if the app is ready 
+
+
+Configure Readiness test 
+	- set 'readinessProbe' in the pod-definition file
+
+pod-definition.yaml
+------------------------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-webapp
+  labels:
+  name: simple-webapp
+spec:
+  containers:
+  - name: simple-webapp
+    image: simple-webapp
+    ports:
+      -  containerPort: 8080
+
+    readinessProbe:
+      httpGet:
+	path: /api/ready
+	port: 8080
+------------------------------------------------
+
+
+After 'readinessProbe' is configured, Kubernetes do not set READY state of the pod before the tests are successfully executed. The service do not pass traffic before tests are executed.
+
+
+
+Configuration of probes
+=======================
+
+For HTTP
+--------------------
+    readinessProbe:
+      httpGet:
+	path: /api/ready
+	port: 8080
+
+      initialDelaySeconds: 10		# set delay for the app to warm up to prevent errors
+
+      periodSeconds: 5			# probe will be used every 5 seconds
+
+      failureTreshold: 8 		# set more intialize probe attempts (3 by default)
+--------------------
+
+By default if the application if not ready after 3 attempts, the probe will stop. If we want to set more attempts we can use 'failureTreshold' property
+
+
+For TCP
+--------------------
+    readinessProbe:
+      tcpSocket:
+	port: 3306
+--------------------
+
+For command
+--------------------
+    readinessProbe:
+      exec:
+        command:
+	  - cat
+	  - /app/is_ready
+--------------------
+
+
+How readyness probes are useful in multi-container pods
+=======================================================
+
+We deployment with 2 container pod and services for each container. When we add third container without configured probe, as soon the container starts the service will start pass traffic. If there is delay (warm up) period, the users will not be able to use the application. If the readiness probe is configured the service will not start pass traffic untill the probe confirm that the application is ready.
+
+
+
+
 
 =============================
 Section 5 82. Liveness Probes
 =============================
+
+We may be in scenarion when application is not working but the pod is in running state. We have to recreate the pod to restore the service to the users. To avoid this scenario we can use liveliness probes to periodically test if the application is working properly (is healthy). If the probes failure then the application is not healthy - must be destroyed and recreated.
+
+As a developers we set the condifition of what 'healthy' means.
+
+- In case of web applications, healthy means when the web app server is up and running.
+- In case of DB we can test if a particular RCP socket (3306) is listening.
+- Perform custom command execution
+
+
+Liveness Probe is configured in the pod-definition file - same as readyness probe but with section header 'livenessProbe'
+
+
+pod-definition.yaml
+------------------------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-webapp
+  labels:
+  name: simple-webapp
+spec:
+  containers:
+  - name: simple-webapp
+    image: simple-webapp
+    ports:
+      -  containerPort: 8080
+
+    livenessProbe:				# liveness section
+      httpGet:
+	path: /api/healthy
+	port: 8080
+------------------------------------------------
+
+
+
+For HTTP
+--------------------
+    livenessProbe:
+      httpGet:
+	path: /api/healthy
+	port: 8080
+
+      initialDelaySeconds: 10		# set delay for the app to warm up to prevent errors
+
+      periodSeconds: 5			# probe will be used every 5 seconds
+
+      failureTreshold: 8 		# set more intialize probe attempts (3 by default)
+--------------------
+
+By default if the application if not ready after 3 attempts, the probe will stop. If we want to set more attempts we can use 'failureTreshold' property
+
+
+For TCP
+--------------------
+    livenessProbe:
+      tcpSocket:
+	port: 3306
+--------------------
+
+For command
+--------------------
+    livenessProbe:
+      exec:
+        command:
+	  - cat
+	  - /app/is_healthy
+--------------------
+
+
+
 
 
 ===========================================================
@@ -25,18 +218,634 @@ Section 5 84. Practice Test - Readiness and Liveness Probes
 ===========================================================
 
 
+1. We have deployed a simple web application. Inspect the PODs and Services.
+----------------------------------------------------------------------------
+
+List pods
+	terminal --> k get pods
+
+List services
+	terminal --> k get services
+
+- press 'Ok' button
+
+
+
+2. View the application by clicking on the 'Web Portal' link above your terminal.
+---------------------------------------------------------------------------------
+It may take a minute or two for the web app to come up. Monitor the status of the POD until it is ready.
+
+Open the 'Web Portal' to chekc the app.
+
+- click 'Ok' button
+
+
+
+
+
+3. A test script is provided that sends multiple requests to access the web application.
+----------------------------------------------------------------------------------------
+Execute the script at /root/curl-test.sh. Run the command './curl-test.sh'
+
+Run the script
+	terminal --> ./curl-test.sh
+
+
+- click 'Ok' button
+
+
+
+
+4. We just created a new POD to scale the application. View the pods. Run the script again and view the results.
+----------------------------------------------------------------------------------------------------------------
+The application takes 80 seconds to warm up.
+
+
+List pods
+	terminal --> k get pods
+
+	# result:
+	NAME              READY   STATUS    RESTARTS   AGE
+	simple-webapp-1   1/1     Running   0          3m7s
+	simple-webapp-2   1/1     Running   0          44s
+
+
+Run the script
+	terminal --> ./curl-test.sh
+
+Check the 'Web Portal' page
+
+- click 'Ok' button
+
+
+
+5. Notice the errors in the output of the script.
+-------------------------------------------------
+
+Run the script
+	terminal --> ./curl-test.sh
+
+In the result we can see few failures.
+
+- click 'Ok' button
+
+
+
+
+6. Update the newly created pod 'simple-webapp-2' with a readinessProbe using the given spec
+--------------------------------------------------------------------------------------------
+Spec is given on the below. Do not modify any other properties of the pod.
+
+Pod Name: simple-webapp-2
+Image Name: kodekloud/webapp-delayed-start
+Readiness Probe: httpGet
+Http Probe: /ready
+Http Port: 8080
+
+
+Task apprach
+	1. List pods and indentify the pod we will configure prob on
+	2. Save pod configuration in file, edit it and set probe configuration
+	3. Recreate the pod and see the result
+
+
+
+List pods
+	terminal --> k get pods
+
+	# result:
+	NAME              READY   STATUS    RESTARTS   AGE
+	simple-webapp-1   1/1     Running   0          11m
+	simple-webapp-2   1/1     Running   0          8m56s		# this is the pod we will configure prob in
+
+
+Save pod configuration in webapp2.yaml file
+	terminal --> k get pod simple-webapp-2 -o yaml > webapp2.yaml
+
+Edit the pod configuration file webapp2.yaml
+	terminal --> vi webapp2.yaml
+
+webapp2.yaml
+----------------------------------------
+...
+spec:
+  containers:
+  - env:
+    - name: APP_START_DELAY
+      value: "80"
+    image: kodekloud/webapp-delayed-start
+    imagePullPolicy: Always
+    name: simple-webapp
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+    readinessProbe:			# added from here
+      httpGet:
+        path: /ready
+        port: 8080			# to here
+    resources: {}
+...
+----------------------------------------
+save changes - escape, :wq!, enter
+
+Verify changes
+	terminal --> cat webapp2.yaml
+
+
+Delete the existing simple-webapp-2 pod
+	terminal --> k delete pod simple-webapp-2
+	
+	# result: pod "simple-webapp-2" deleted
+
+Recreate the pod with the modified definition file
+	terminal --> k apply -f webapp2.yaml
+
+	# result: pod/simple-webapp-2 created
+
+
+- click 'Check' button
+
+
+
+
+7. Run the script again to test the web application. Notice that none of the requests fail now. Though all the requests hit the same POD.
+-------------------------------------------------------------------------------------------------------------------------------
+Execute the script at /root/curl-test.sh.
+
+
+Execute the script
+	terminal --> /root/curl-test.sh
+
+We can see that all tests are executed for pod simple-webapp-1
+
+- click 'Ok' button
+
+
+
+
+8. Wait for the new POD to be ready and run the test again to see traffic distributed between both the PODs.
+------------------------------------------------------------------------------------------------------------
+Execute the script at /root/curl-test.sh.
+Once the simple-webapp-2 pod is ready, the traffic will be distributed to it as well.
+
+Execute the script
+	terminal --> /root/curl-test.sh
+
+We can see that tests are performed on simple-webapp-2 also. The load ballancing is performed.
+
+- click 'Ok' button
+
+
+
+
+9. What would happen if the application inside container on one of the PODs crashes?
+------------------------------------------------------------------------------------
+Try it by accessing url /crash of the application in your browser or run the crash-app.sh script. Then check the status of POD. Run the curl-test to see if users are impacted.
+
+Run crash script
+	terminal --> ./crash-app.sh
+
+	# result: Message from simple-webapp-2 : Mayday! Mayday! Going to crash!
+
+Run the test script
+	terminal --> /root/curl-test.sh
+
+We can see that the load is redirected to sipmle-webapp-1
+
+
+List pods
+	terminal --> k get pods
+
+	# result:
+	NAME              READY   STATUS    RESTARTS      AGE
+	simple-webapp-1   1/1     Running   0             28m
+	simple-webapp-2   0/1     Running   1 (78s ago)   10m		# webapp-2 is NOT READY
+
+
+Wait few minutes.
+
+List pods again
+	terminal --> k get pods
+
+	# result:
+	NAME              READY   STATUS    RESTARTS        AGE
+	simple-webapp-1   1/1     Running   0               29m
+	simple-webapp-2   1/1     Running   1 (2m14s ago)   11m		# pod is in READY state
+
+
+- choose 'The container inside the POD is restarted' as answer
+
+
+
+
+
+10. When the application crashes, the container is restarted. During this period the service directs users to the available POD, since the POD status is not READY.
+--------------------------------------------------------------------------------------------------------------------------------
+
+- click 'Ok' button
+
+
+
+
+
+11. What would happen if the application inside container on one of the PODs freezes?
+-------------------------------------------------------------------------------------
+Try it by accessing url /freeze of the application in your browser or run the freeze-app.sh script. Then check the status of POD. Run the curl-test to see if users are impacted.
+
+
+Execute the script and freeze the pod
+	terminal --> ./freeze-app.sh
+
+	# result: nohup: appending output to 'nohup.out'
+
+Run the test script 
+	terminal --> ./curl-test.sh
+
+We can see the result is 'Failed'
+
+- choose 'new users are impacted' as answer
+
+
+
+
+12. Update both the pods with a livenessProbe using the given spec
+------------------------------------------------------------------
+Delete and recreate the PODs.
+
+Pod Name: simple-webapp-1
+Image Name: kodekloud/webapp-delayed-start
+Liveness Probe: httpGet
+Http Probe: /live
+Http Port: 8080
+Period Seconds: 1
+Initial Delay: 80
+
+Pod Name: simple-webapp-2
+Image Name: kodekloud/webapp-delayed-start
+Liveness Probe: httpGet
+Http Probe: /live
+Http Port: 8080
+Initial Delay: 80
+Period Seconds: 1
+
+Task approach
+	1. Save pods configurations in a file
+	2. Modify the configurations adding liveness probes
+	3. Recreate the pods
+
+
+Save configuration file of one of the pods
+	terminal --> k get pod -o yaml > webapp.yaml
+
+
+Edit the saved configuration file and add liveness probe
+	terminal --> vi webapp.yaml
+
+
+webapp.yaml
+------------------------------------------------
+...
+    name: simple-webapp-1
+    namespace: default
+    resourceVersion: "928"
+    uid: f9ec44ac-d894-4c3d-aa33-219506b0ab50
+  spec:
+    containers:
+    - image: kodekloud/webapp-delayed-start
+      imagePullPolicy: Always
+      name: simple-webapp
+      ports:
+      - containerPort: 8080
+        protocol: TCP
+      livenessProbe:				# added liveness probe for webapp-1
+        httpGet:
+          path: /live
+          port: 8080
+        periodSeconds: 1
+        initialDelaySeconds: 80			# to here
+      resources: {}
+...
+    name: simple-webapp-2
+    namespace: default
+    resourceVersion: "3508"
+    uid: caaf9b23-3899-4ec6-8ad6-45f07016169b
+  spec:
+    containers:
+    - env:
+      - name: APP_START_DELAY
+        value: "80"
+      image: kodekloud/webapp-delayed-start
+      imagePullPolicy: Always
+      name: simple-webapp
+      ports:
+      - containerPort: 8080
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /ready
+          port: 8080
+          scheme: HTTP
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      livenessProbe:
+        httpGet:
+          path: /live
+          port: 8080
+        periodSeconds: 1
+        initialDelaySeconds: 80
+      resources: {}
+...
+------------------------------------------------
+save changes - escape, :wq!, enter
+
+
+Delete all pod
+	terminal --> k delete pod --all
+
+	# result:
+	pod "simple-webapp-1" deleted
+	pod "simple-webapp-2" deleted
+
+
+Recreate the pods
+	terminal --> k apply -f webapp.yaml
+
+	# result:
+	pod/simple-webapp-1 created
+	pod/simple-webapp-2 created
+
+- click 'Check' button
+
+
+
+
+13. Freeze the application again and notice what happens. When a POD freezes, it would be restarted automatically.
+------------------------------------------------------------------------------------------------------------------
+Try it by accessing url /freeze of the application in your browser. Then check the status of POD. Run the curl-test to see if users are impacted.
+
+Freeze pod
+	terminal --> ./freeze-app.sh
+
+	# result: nohup: appending output to 'nohup.out'
+
+List pods
+	terminal --> k get pods
+
+	# result:
+	NAME              READY   STATUS    RESTARTS   AGE
+	simple-webapp-1   1/1     Running   0          98s
+	simple-webapp-2   1/1     Running   0          98s
+
+
+Run the test script 
+	terminal --> ./curl-test.sh
+
+We can see that there is no loss of application load.
+
+- click 'Ok' button
+
+
+
+
 ===============================
 Section 5 85. Container Logging
 ===============================
+
+We have pod definition file with one container.
+
+event-simulator.yaml
+---------------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  name: event-simulator-pod
+spec:
+  containers:
+  - name: event-simulator
+    image: kodekloud/event-simulator
+---------------------------------------
+
+Create event simulator pod
+	terminal --> k create -f event-simulator.yaml
+
+Stream logs of the event simulator pod
+	terminal --> k logs -f event-simulator-pod
+
+	# k				- short for kubectl - common kubernetes command
+	# logs -f 			- stream logs
+	# event-simulator-pod		- pod name
+
+
+
+In case we have multiple containers in the pod, we need to specify the container when we stream the logs. 
+
+event-simulator.yaml
+---------------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  name: event-simulator-pod
+spec:
+  containers:
+  - name: event-simulator
+    image: kodekloud/event-simulator
+
+  - name: image-processor
+    image: some-image-processor
+---------------------------------------
+
+Create event simulator pod
+	terminal --> k create -f event-simulator.yaml
+
+Stream logs of the specific container in the event simulator pod
+	terminal --> k logs -f event-simulator-pod event-simulator
+
+	# k				- short for kubectl - common kubernetes command
+	# logs -f 			- stream logs
+	# event-simulator-pod		- pod name
+	# event-simulator		- container name
+
+
 
 
 ===============================================
 Section 5 87. Practice Test - Container Logging
 ===============================================
 
+
+1. We have deployed a POD hosting an application. Inspect it. Wait for it to start.
+-----------------------------------------------------------------------------------
+
+List pods
+	terminal --> k get pods
+
+	# result:
+	NAME       READY   STATUS    RESTARTS   AGE
+	webapp-1   1/1     Running   0          27s
+
+
+- click 'Ok' button
+
+
+
+
+2. A user - USER5 - has expressed concerns accessing the application. Identify the cause of the issue.
+------------------------------------------------------------------------------------------------------
+Inspect the logs of the POD
+
+List pods
+	terminal --> k get pods
+
+	# result:
+	NAME       READY   STATUS    RESTARTS   AGE
+	webapp-1   1/1     Running   0          112s
+
+
+Show logs of the pod
+	terminal --> k logs webapp-1
+
+# result:
+...
+[2025-03-13 11:23:46,661] INFO in event-simulator: USER2 is viewing page3
+[2025-03-13 11:23:47,662] WARNING in event-simulator: USER7 Order failed as the item is OUT OF STOCK.
+[2025-03-13 11:23:47,662] INFO in event-simulator: USER3 logged in
+[2025-03-13 11:23:48,663] INFO in event-simulator: USER3 is viewing page1
+[2025-03-13 11:23:49,663] INFO in event-simulator: USER4 logged in
+[2025-03-13 11:23:50,665] WARNING in event-simulator: USER5 Failed to Login as the account is locked due to MANY FAILED ATTEMPTS.
+[2025-03-13 11:23:50,665] INFO in event-simulator: USER2 is viewing page1
+[2025-03-13 11:23:51,666] INFO in event-simulator: USER1 is viewing page2
+[2025-03-13 11:23:52,667] INFO in event-simulator: USER1 is viewing page1
+[2025-03-13 11:23:53,669] INFO in event-simulator: USER1 logged in
+[2025-03-13 11:23:54,670] INFO in event-simulator: USER4 logged in
+[2025-03-13 11:23:55,671] WARNING in event-simulator: USER5 Failed to Login as the account is locked due to MANY FAILED ATTEMPTS.
+[2025-03-13 11:23:55,672] WARNING in event-simulator: USER7 Order failed as the item is OUT OF STOCK.
+[2025-03-13 11:23:55,672] INFO in event-simulator: USER3 is viewing page3
+[2025-03-13 11:23:56,673] INFO in event-simulator: USER1 is viewing page3
+
+- choose 'Account Locked due to Many Failed Attempts' as answer
+
+
+
+
+3. We have deployed a new POD - webapp-2 - hosting an application. Inspect it. Wait for it to start.
+----------------------------------------------------------------------------------------------------
+
+List pods
+	terminal --> k get pods
+
+	# result:
+	NAME       READY   STATUS    RESTARTS   AGE
+	webapp-1   1/1     Running   0          4m7s
+	webapp-2   2/2     Running   0          30s		# the new app
+
+- clic 'Ok' button
+
+
+
+
+4. A user is reporting issues while trying to purchase an item. Identify the user and the cause of the issue.
+-------------------------------------------------------------------------------------------------------------
+Inspect the logs of the webapp in the POD
+
+List pods
+	terminal --> k get pods
+
+	# result:
+	NAME       READY   STATUS    RESTARTS   AGE
+	webapp-1   1/1     Running   0          4m7s
+	webapp-2   2/2     Running   0          30s
+
+
+Show logs of the webapp-2 and the sepcific container
+	terminal --> k logs webapp-2 simple-webapp
+
+# result:
+...
+[2025-03-13 11:27:16,004] WARNING in event-simulator: USER5 Failed to Login as the account is locked due to MANY FAILED ATTEMPTS.
+[2025-03-13 11:27:16,005] WARNING in event-simulator: USER30 Order failed as the item is OUT OF STOCK.
+[2025-03-13 11:27:16,005] INFO in event-simulator: USER3 is viewing page1
+[2025-03-13 11:27:17,006] INFO in event-simulator: USER1 is viewing page2
+[2025-03-13 11:27:18,007] INFO in event-simulator: USER4 is viewing page2
+[2025-03-13 11:27:19,008] INFO in event-simulator: USER1 is viewing page1
+[2025-03-13 11:27:20,009] INFO in event-simulator: USER1 logged in
+[2025-03-13 11:27:21,010] WARNING in event-simulator: USER5 Failed to Login as the account is locked due to MANY FAILED ATTEMPTS.
+[2025-03-13 11:27:21,010] INFO in event-simulator: USER3 is viewing page1
+[2025-03-13 11:27:22,011] INFO in event-simulator: USER3 logged in
+[2025-03-13 11:27:23,013] INFO in event-simulator: USER3 logged in
+[2025-03-13 11:27:24,014] WARNING in event-simulator: USER30 Order failed as the item is OUT OF STOCK.
+[2025-03-13 11:27:24,014] INFO in event-simulator: USER3 logged in
+[2025-03-13 11:27:25,015] INFO in event-simulator: USER4 is viewing page1
+[2025-03-13 11:27:26,016] WARNING in event-simulator: USER5 Failed to Login as the account is locked due to MANY FAILED ATTEMPTS.
+[2025-03-13 11:27:26,016] INFO in event-simulator: USER1 is viewing page1
+
+
+- choose 'USER30 - Items is Out of Stock'
+
+
+
+
 ============================================
 Section 5 88. Monitor and Debug Applications
 ============================================
+
+Monitoring Kubernetes Cluster
+	- number of nodes in the cluster
+	- how many of the nodes are healthy
+	- performance metrics as CPU, MEM and DISK
+	- POD level metrics
+		- number of pods
+		- performance metrics of each POD - CPU and Memory Consumption on them
+
+We need a solution that will monitor this metrics, store them and provide analytics around this data. Kubernetes do not come with build in solutions. We can use external tools like MetricServer, Prometheus, ElasticStack, DATADOG, dynatrace and more.
+
+
+Heapster is one of the original tools developed for monitoring kubenetes cluster. Heapster was deprecated and slim down version was formed - Metrics Server. We can heva one Metrics Server by Kubernetes Cluster.
+
+
+Metrics Server
+==============
+
+Metrics Server retreives metrics from each pods nodes and pods, agregates them and stores them in memory. Metrics Server is only in-memory metric solution and does NOT sores the metrics on the disk. As a result we can NOT see historical performance data. To store the metrics we need to use some of the mentioned tools earlier.
+
+Metric on pods are generated bu the Kubelet agent on each node. The Kubelet is responsible for receiving instruction from API Server from the Master Node and running pods on the Nodes. Kubelet contains a sub-component know as cAdvisor (Container Advisor). cAdvisor is responsible for receiving performance metrics from pods and exposing them true the kubelet-api to make the metrics available to the Metrics Server.
+
+
+Enable metrics Server
+---------------------
+
+1. Using minikube
+	terminal --> minikube addons enable metrics-server
+
+2. For all other solutions
+	2.1. Download the metric server definition file
+		terminal --> git clone https://github.com/kubernetes-incubator/metrics-server.git
+	2.2. Deploy the metrics-server
+		terminal --> kubectl create -f deploy/1.8+/
+
+	# result:
+	clusterrolebinding "metrics-server:sytem:auth-delegator" created
+	rolebinding "metrics-server-auth-reader" created
+	apiservice "v1beta1.metrics.k8s.io" created
+	serviceaccount "metrics-server" created
+	deployment "metrics-server" created
+	service "metrics-server" created
+	clusterrole "system:metrics-server" created
+	clusterrolebinding "system:metrics-server" created
+
+Once deployed we have to give the Metrics Server some time to collect and process data.
+Once processed, cluster performance can be viewed by command
+	terminal --> kubectl top node
+
+This provides CPU and Memory consumption by the each Node.
+
+
+We can monitor performance metrics of pods
+	terminal --> kubectl top pod
+
+This will provide resource consumption by each pod.
+
 
 
 =========================================
@@ -44,26 +853,139 @@ Section 5 890. Practice Test - Monitoring
 =========================================
 
 
+1. We have deployed a few PODs running workloads. Inspect them.
+---------------------------------------------------------------
+Wait for the pods to be ready before proceeding to the next question.
+
+List pods
+	terminal --> k get pods
+
+	# result:
+	NAME       READY   STATUS    RESTARTS   AGE
+	elephant   1/1     Running   0          25s
+	lion       1/1     Running   0          25s
+	rabbit     1/1     Running   0          25s
+
+- click 'Ok' button
+
+
+
+2. Let us deploy the Metrics Server to enable monitoring of the PODs and Nodes in the cluster.
+----------------------------------------------------------------------------------------------
+
+- click 'Ok' button
 
 
 
 
+3. Deploy the Metrics Server in your Kubernetes cluster by applying the latest release components.yaml manifest using the following command:
+-------------------------------------------------------------------------------------------------------------------------
+Run the kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+Run the command
+	terminal --> kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+	# result:
+	serviceaccount/metrics-server created
+	clusterrole.rbac.authorization.k8s.io/system:aggregated-metrics-reader created
+	clusterrole.rbac.authorization.k8s.io/system:metrics-server created
+	rolebinding.rbac.authorization.k8s.io/metrics-server-auth-reader created
+	clusterrolebinding.rbac.authorization.k8s.io/metrics-server:system:auth-delegator created
+	clusterrolebinding.rbac.authorization.k8s.io/system:metrics-server created
+	service/metrics-server created
+	deployment.apps/metrics-server created
+	apiservice.apiregistration.k8s.io/v1beta1.metrics.k8s.io created
+
+DO NOT USE THIS COMPONENTS FOR PRODUCTION ENVIRONMENT !!! REFER TO THE OFFICIAL DOCUMENTATION FOR LATEST COMPONENTS !!!
+
+
+- click 'Check' button
 
 
 
 
+4. It takes a few minutes for the metrics server to start gathering data.
+-------------------------------------------------------------------------
+Run the kubectl top node command and wait for a valid output.
+
+
+Wait few minutes.
+
+Show generated data from metrics server
+	terminal --> kubectl top node
+
+	# result:
+	NAME           CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
+	controlplane   228m         1%       889Mi           1%          
+	node01         29m          0%       165Mi           0%  
+	
+
+- click 'Ok' button
 
 
 
 
+5. Identify the node that consumes the most CPU(cores).
+-------------------------------------------------------
+
+Show nodes consumption
+	terminal --> kubectl top node
+
+	# result:
+	NAME           CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
+	controlplane   228m         1%       932Mi           1%      		# this is the node    
+	node01         28m          0%       159Mi           0%  
+
+- choose 'controlplane' as answer
 
 
 
 
+6. Identify the node that consumes the most Memory(bytes).
+----------------------------------------------------------
+
+Show nodes consumption
+	terminal --> kubectl top node
+
+	# result:
+	NAME           CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   
+	controlplane   228m         1%       932Mi           1%      		# this is the node    
+	node01         28m          0%       159Mi           0%  
+
+- choose 'controlplane' as answer
 
 
 
 
+7. Identify the POD that consumes the most Memory(bytes) in default namespace.
+------------------------------------------------------------------------------
 
+Show pods consumption
+	terminal --> kubectl top pod
+
+	# result:
+	NAME       CPU(cores)   MEMORY(bytes)   
+	elephant   16m          30Mi            
+	lion       1m           16Mi            
+	rabbit     112m         250Mi  			# this is the pod that consume most memory
+
+- choose 'rabbit' as answer
+
+
+
+
+8. Identify the POD that consumes the least CPU(cores) in default namespace.
+----------------------------------------------------------------------------
+
+Show pods consumption
+	terminal --> kubectl top pod
+
+	# result:
+	NAME       CPU(cores)   MEMORY(bytes)   
+	elephant   15m          30Mi            
+	lion       1m           16Mi         	# this is the pod that consumes the least CPU   
+	rabbit     112m         250Mi   
+
+- choose 'lion' as answer
 
 
