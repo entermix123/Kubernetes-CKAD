@@ -1445,6 +1445,114 @@ Run tests
 Section 6 99. Deployment Strategy - Blue Green
 ==============================================
 
+Deployment strategies
+	1. Recreate - destroying all existing versions instances and then deploying new versions instances
+		- CON - creates downtime, not accessabel for users
+	2. Rollin Update - Destroy old version isntances and create new version instances one by one (default kubernetes strategy)
+	3. Blue/Green
+	4. Canary
+
+
+Blue/Green deployment strategy
+==============================
+
+We have old deployemnt (Blue) with old version instances. We create new deployment (Green) with new version instances. We perform tests on the new deployment (Green) and then redirect the traffic from old deployment (Blue) to the new deployment (Green). We can implement this strategy with Istio Service.
+
+
+How it works
+------------
+
+We have (Blue) deployment and service to route traffic to it. To associate the service to the deployment we set a label of the deployment and selector for this label on the service - version: v1. Then we deploy a second (Green) deployment with new version of the application and label - version: v2. We perform tests on the Green deployment to assure that the application is working properly. The we switch traffic from Blue (old) deployment to the Grren (new) deployment by changing the selector of the service from version: v1 to version: v2.
+
+Example with code
+-----------------
+
+We have old deployment (Blue):
+
+myapp-blue.yaml
+-------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp-blue
+  labels:
+    app: myapp
+    type: front-end
+spec:
+  template:
+    metadata:
+      name: myapp-pod
+      labels:
+	version: v1
+
+    spec:
+      containers:
+      - name: app-container
+	image: myapp-image:1.0
+  replicas: 5
+  selector:
+    matchLabels:
+      version: v1
+-------------------------------
+
+
+service-definition.yaml
+-------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  selector:
+    version: v1
+-------------------------------
+
+Now all user traffic is directed to deployment blue
+
+
+We deploy a new deployment Green with the new version of the application instances
+
+myapp-green.yaml
+-------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp-green		# different name
+  labels:
+    app: myapp
+    type: front-end
+spec:
+  template:
+    metadata:
+      name: myapp-pod
+      labels:
+	version: v2		# different label
+
+    spec:
+      containers:
+      - name: app-container
+	image: myapp-image:2.0	# different image
+  replicas: 5
+  selector:
+    matchLabels:
+      version: v2		# different selector
+-------------------------------
+
+We perform all the tests on the deployment to ensure that everything is working propoerly.
+
+To switch the traffic to the deployment we change the selector in the service.
+
+service-definition.yaml
+-------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  selector:
+    version: v2				# changed selector label
+-------------------------------
+
 
 
 
@@ -1452,21 +1560,683 @@ Section 6 99. Deployment Strategy - Blue Green
 Section 6 100. Deployment Strategy - Canary
 ===========================================
 
+In this strategy we have primary (main) deployment and new deployment (Canary). Then we route only a small procentage of the traffic to the new Canary deployment. We perform tests on it and if tests passes successfully we update the primary (main) deployemnt with Rollin Update strategy. Then we destroy the Canary deployment.
+
+
+How it works
+------------
+
+We have primary deployment with 5 replicas (pods) and service that routes the traffic to all of the pods. The main deployment have label version: v1 and the service have selector version: v1. We deploy a second deplyment (Canary) with 5 replicas (pods).
+
+We want to acheave 2 things with the new Canary deployment
+	1. Traffic should go to both deployments in the same time
+	2. We want to route a small procentage of traffic to Canary deployment
+
+
+1. Make the traffic go to the both deplyments
+---------------------------------------------
+- We create a common label in both deployemnts - app: front-end
+- Modify the selector in the service to match this common label - app: front-end
+
+Now the traffic is routed equally between the deployments - 50% - 50%
+
+
+2. Reduce the traffic to the Canary (second) deployment
+-------------------------------------------------------
+- We reduce the pods in the Canary deployemnt to minimum - 1
+
+Since Kubernetes routes the traffic between all pods equally, the rpocentage is 5:1 - 83% - 17%.
+
+Now we can perform tests on the Canary deployment (with one pod). We can update the primary deployment with Rolling Update strategy. Then we can delete the Canary deployment.
+
+One of the cavities of the canary strategy is that we have a limited control over the routed traffic or the split of the traffic between each deployment. The traffic split is always going to be governed by the number of pods present in each deployment. We cannot set 1% of the traffic to be routed to the canary deployment. Solution for this issue is using services like Istio that define the exact precentage of traffic to be distributed between each deployment. It is not dependent on the number of pods in the deployment.
+
+
+
+Example with code
+-----------------
+
+We have primary deployment:
+
+myapp-primary.yaml
+-------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp-primary
+  labels:
+    app: myapp
+    type: front-end
+spec:
+  template:
+    metadata:
+      name: myapp-pod
+      labels:
+	version: v1
+        app: front-end		# set common label
+
+    spec:
+      containers:
+      - name: app-container
+	image: myapp-image:1.0
+  replicas: 5
+  selector:
+    matchLabels:
+        app: front-end		# set selector label
+-------------------------------
+
+
+We have service:
+
+service-definition.yaml
+-------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  selector:
+    app: front-end
+-------------------------------
+
+
+We create Canary deployment
+
+myapp-canary.yaml
+-------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp-canary		# different name
+  labels:
+    app: myapp
+    type: front-end
+spec:
+  template:
+    metadata:
+      name: myapp-pod
+      labels:
+	version: v2		# different version
+        app: front-end		# common label	
+
+    spec:
+      containers:
+      - name: app-container
+	image: myapp-image:2.0	# different image version
+  replicas: 1			# set minimum replicas
+  selector:
+    matchLabels:
+        app: front-end		# set selector label
+-------------------------------
+
+
 
 
 ==================================================
 Section 6 102. Practice Test - Deployment Strategy
 ==================================================
 
+1. A deployment has been created in the default namespace. What is the deployment strategy used for this deployment?
+--------------------------------------------------------------------------------------------------------------------
 
-==================================================
-Section 6 102. Practice Test - Deployment Strategy
-==================================================
+List deployments
+	terminal --> k get deploy
+
+	# result:
+	NAME       READY   UP-TO-DATE   AVAILABLE   AGE
+	frontend   5/5     5            5           26s
+
+
+Show deployment details
+	terminal --> k describe deploy frontend 
+
+# result:
+-----------------------------------
+...
+StrategyType:           RollingUpdate
+...
+-----------------------------------
+
+- choose 'Rolling Update' as answer
+
+
+
+
+2. The deployment called frontend app is exposed on the NodePort via a service.
+-------------------------------------------------------------------------------
+Identify the name of this service.
+
+List services
+	terminal --> k get svc
+
+	# result:
+	NAME               TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+	frontend-service   NodePort    172.20.223.70   <none>        8080:30080/TCP   117s	# this is the service
+	kubernetes         ClusterIP   172.20.0.1      <none>        443/TCP          7m42s
+
+We can check service selector to verify the deployment connection
+	termianl --> k describe svc frontend-service
+
+# result:
+-----------------------------------
+...
+Selector:                 app=frontend
+...
+-----------------------------------
+
+Show deployment selector
+	terminal --> k describe deploy frontend | grep Selector
+
+	# result:
+	Selector:               app=frontend	# same as in the service
+  	  Node-Selectors:  <none>
+
+- choose 'frontend-service' as answer
+
+
+
+3. What is the selector used by this service?
+---------------------------------------------
+Inspect the service called frontend-service.
+
+
+Show service selector 
+	termianl --> k describe svc frontend-service
+
+# result:
+-----------------------------------
+...
+Selector:                 app=frontend
+...
+-----------------------------------
+
+- choose 'app: frontend' as answer
+
+
+
+
+4. Check out the web application using the Webapp link above your terminal.
+---------------------------------------------------------------------------
+
+Open the Webapp tab above the terminal
+
+- click 'Ok' button
+
+
+
+
+5. A new deployment called frontend-v2 has been created in the default namespace using the image kodekloud/webapp-color:v2. This deployment will be used to test a newer version of the same app.
+--------------------------------------------------------------------------------------------------------------------------------
+Configure the deployment in such a way that the service called frontend-service routes less than 20% of traffic to the new deployment.
+Do not increase the replicas of the frontend deployment.
+
+
+List deployemnts
+	terminal --> k get deploy
+	
+	# result:
+	NAME          READY   UP-TO-DATE   AVAILABLE   AGE
+	frontend      5/5     5            5           8m11s
+	frontend-v2   2/2     2            2           28s		# this is the new deployment and it has 2 pods
+
+Edit the deplyment and set replicas to 1
+	terminal --> k edit deploy frontend-v2
+
+frontend-v2
+---------------------------------
+...
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1				# set replicas to 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: frontend			# check selector
+  strategy:
+    rollingUpdate:
+...
+---------------------------------
+save changes - escape, :wq!, enter
+
+# result: deployment.apps/frontend-v2 edited
+
+
+Verify changes
+	terminal --> k get deploy
+
+	# result:
+	NAME          READY   UP-TO-DATE   AVAILABLE   AGE
+	frontend      5/5     5            5           10m
+	frontend-v2   1/1     1            1           3m4s
+
+- click 'Check' button
+
+
+
+
+6. Check out the new version of the web application using the Webapp link above your terminal.
+----------------------------------------------------------------------------------------------
+You may need to refresh it multiple times to see the new version.
+
+Open Webapp tab above the terminal and refresh few times till the you see 'Application Version: v2'
+
+- click 'Ok' button
+
+
+
+7. We have now established that the new version v2 of the application is working as expected.
+---------------------------------------------------------------------------------------------
+We can now safely redirect all users to the v2 version.
+
+- click 'Ok' button
+
+
+
+8. Scale down the v1 version of the apps to 0 replicas and scale up the new(v2) version to 5 replicas.
+------------------------------------------------------------------------------------------------------
+
+List deployments
+	terminal --> k get deploy
+
+	# result:
+	NAME          READY   UP-TO-DATE   AVAILABLE   AGE
+	frontend      5/5     5            5           18m
+	frontend-v2   1/1     1            1           10m
+
+We can scale the deployments by 2 options
+	1. Edit the deployments and modify the replicas to 0 for forntend and to 5 for frontend-v2
+	2. Scale down both deployments with one line command
+
+Opton 1
+-------
+
+Edit deployment frontend and set replicas to 0
+	terminal --> k edit deploy frontend
+
+frontend
+---------------------------------------
+...
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 0				# set replicas to 0
+  revisionHistoryLimit: 10
+  selector:
+...
+---------------------------------------
+save changes - escape, :wq!, enter
+
+# result: deployment.apps/frontend edited
+
+Edit deployment frontend and set replicas to 5
+	terminal --> k edit deploy frontend-v2
+
+frontend-v2
+---------------------------------------
+...
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 5				# set replicas to 5
+  revisionHistoryLimit: 10
+...
+---------------------------------------
+save changes - escape, :wq!, enter
+
+# result: deployment.apps/frontend-v2 edited
+
+List deployments to verify the scaling
+	terminal --> k get deploy
+
+	# result:
+	NAME          READY   UP-TO-DATE   AVAILABLE   AGE
+	frontend      0/0     0            0           21m	# 0 pods
+	frontend-v2   5/5     5            5           13m	# 5 pods
+
+
+Option 2
+--------
+
+Scale deployemnts with one command
+
+Scale deployment frontend to 0 replicas
+	terminal --> k scale deploy frontend --replicas=0
+
+	# result: deployment.apps/frontend scaled
+
+Scale deployment frontend-v2 to 5 replicas
+	terminal --> k scale deploy frontend-v2 --replicas=4
+
+	# result: deployment.apps/frontend-v2 scaled
+
+
+- click 'Check' button
+
+
+
+9. Now delete the deployment called frontend completely.
+--------------------------------------------------------
+
+List deployments
+	terminal --> k get deploy
+
+	# result:
+	NAME          READY   UP-TO-DATE   AVAILABLE   AGE
+	frontend      0/0     0            0           26m	# deployment to delete
+	frontend-v2   5/5     5            5           19m
+
+Delete the deployment
+	terminal --> k delete deploy frontend
+
+	# result: deployment.apps "frontend" deleted
+
+Verify deployment deletion
+	terminal --> k get deploy
+	
+	# result:
+	NAME          READY   UP-TO-DATE   AVAILABLE   AGE
+	frontend-v2   5/5     5            5           20m
+
+- click 'Check' button
+
+
+
+10. You can now reload the Webapp tab to validate that all user traffic now uses the v2 version of the app.
+-----------------------------------------------------------------------------------------------------------
+
+Open the Webapp page above the termianl and check the version. Refresh few times, should be always Application Version: v2
+
+- click 'Check' button
+
 
 
 ===================
 Section 6 103. Jobs
 ===================
+
+There are different workload that a container can serve - Web Servers, Applications, DBs. There are other kinds of workloads such as Batch processing, analytics or reporting that are ment to carry out a specific taks and then finish.
+
+Example for temporary tasks are claculating/computing, image processing or perofrming some kind of alanytics on large dataset, generating a report and sending an email, etc. Those are workloads that are ment to live for a short period of time. Perform a set of tasks and then finish.
+
+
+How such a workload work in Docker
+----------------------------------
+
+Start a Docker container to perform a simple calculation
+	terminal --> docker run ubuntu expr 3 + 2
+
+The container start up, perform the calculation and exits
+
+When we list containers
+	terminal --> docker ps -a
+
+We can see that the container have STATUS 'Exited (0)'. Code 0 means that the operation is successful.
+
+
+
+How to replicate the same in Kubernetes
+---------------------------------------
+
+We create a pod-definition file and create a pod.
+
+pod-definition.yaml
+--------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  name: math-pod
+spec:
+  containers:
+  - name: math-add
+    image: ubuntu
+    command: ["expr", "3", "+", "2"]
+--------------------------------
+
+Create the pod to perform the operation
+	terminal --> k create -f pod-definition.yaml
+
+
+List pods
+	terminal --> k get pods
+
+	# result:
+	NAME		READY		STATUS		RESTARTS		AGE
+	math-pod	0/1		Completed	0			1d
+
+	# result 2:
+	NAME		READY		STATUS		RESTARTS		AGE
+	math-pod	0/1		Completed	1			1d
+
+	# result 3:
+	NAME		READY		STATUS		RESTARTS		AGE
+	math-pod	0/1		Completed	2			1d
+
+	# result 4:
+	NAME		READY		STATUS		RESTARTS		AGE
+	math-pod	0/1		Completed	3			1d
+
+
+Kubernetes restart the container in attempt to keep it running. Restarting stops when the treshold is reached. This behavior is defined by the property 'restartPolicy: Always' set by default in the pod definition file. That is why the pod always recreate the container when it exits. We can overwrite this property to 'Never' to prevent the restarting.
+
+pod-definition.yaml
+--------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  name: math-pod
+spec:
+  containers:
+  - name: math-add
+    image: ubuntu
+    command: ["expr", "3", "+", "2"]
+  restartPolicy: Never
+--------------------------------
+
+Container restart policy
+	- Always: Automatically restarts the container after any termination.
+	- OnFailure: Only restarts the container if it exits with an error (non-zero exit status).
+	- Never: Does not automatically restart the terminated container.
+
+
+
+We have scenario that we need to use multiple pods to process data in parallel. We need to assure that the pods perform the tasks assigned to them successfully and then exit. So we need a manager to create as many pods as we want and ensure that the work is done successfully.
+
+Like ReplicaSets that maintainn number of pods running in all time, a Job is used to run a set of pods to perform a given task to completion.
+
+
+Create a Job
+============
+
+We create a job definition file
+
+job-definition.yaml
+--------------------------------
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: math-add-job
+spec:
+  template:
+    containers:
+    - name: math-add
+      image: ubuntu
+      command: ["expr", "3", "+", "2"]
+    restartPolicy: Never
+--------------------------------
+
+Create the job
+	terminal --> k create -f job-definition.yaml
+
+List jobs
+	terminal --> k get jobs
+
+	# result:
+	NAME		DESIRED		SUCCESSFUL		AGE
+	math-add-job	1		1			38s
+
+List pods related to the job
+	terminal --> k get pods
+
+	# result:
+	NAME			READY		STATUS		RESTARTS	AGE
+	math-add-job-ls34pn	0/1		Completed	0		2m
+
+
+We can see the output of the job in the logs of the pod
+	terminal --> k logs math-add-job-ls34pn
+	
+	# result: 5
+
+Delete the job
+	terminal --> k delete job math-add-job
+
+	# result: job.batch "math-add-job" deleted
+
+The deletion of the job also deletes all related pods!
+
+
+In real world case of image processing, the result will be saved in persisten volume. Or if the Job is to generate a report or send an email, then the email and the report would be the result of the job.
+
+
+
+How to run multiple pods Job for task
+-------------------------------------
+
+We define 'completions: 3' property with the number of job completions.
+
+job-definition.yaml
+--------------------------------
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: math-add-job
+spec:
+  completions: 3			# set how many time the task should be completed
+  template:
+    containers:
+    - name: math-add
+      image: ubuntu
+      command: ["expr", "3", "+", "2"]
+    restartPolicy: Never
+--------------------------------
+
+
+Create the Job
+	terminal --> k create -f job-definition.yaml
+
+List Jobs
+	terminal --> k get jobs
+
+	# result:
+	NAME		DESIRED		SUCCESSFUL		AGE
+	math-add-job	3		3			38s
+
+List pods related to the job
+	terminal --> k get pods
+
+	# result:
+	NAME			READY		STATUS		RESTARTS	AGE
+	math-add-job-ls34pn	0/1		Completed	0		2m	# 1 completed
+	math-add-job-fa28sg	0/1		Completed	0		2m	# 2 completed
+	math-add-job-s4sfc3	0/1		Completed	0		2m	# 3 completed
+
+By default the pods are created one after another. The second pod is created only after the first is finished.
+
+
+
+
+Scenario with failure pods
+--------------------------
+
+job-definition.yaml
+--------------------------------
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: math-add-job
+spec:
+  completions: 3				# completions required - 3
+  template:
+    containers:
+    - name: random-error	
+      image: kodekloud/random-error		# simple docker image that randomly completes or fails
+    restartPolicy: Never
+--------------------------------
+
+Create the job
+	terminal --> k craete -f job-definition.yaml
+
+List jobs
+	terminal --> k get jobs
+
+	# result:
+	NAME		DESIRED		SUCCESSFUL		AGE
+	math-add-job	3		0			38s
+
+
+List pods related to the job
+	terminal --> k get pods
+
+	# result:
+	NAME			READY		STATUS		RESTARTS	AGE
+	math-add-job-ls34pn	0/1		Completed	0		2m	# 1 completed	
+	math-add-job-fa28sg	0/1		Error		0		2m	# 2 completed	# first error
+	math-add-job-s4sfc3	0/1		Completed	0		2m	# 3 completed
+
+	math-add-job-s43sfs	0/1		Error		0		2m	# 2 completed	# second error
+	math-add-job-75dfds	0/1		Error		0		2m	# 2 completed	# third error
+	math-add-job-d343df	0/1		Completed	0		2m	# 3 completed	# final competion
+
+
+Kubernetes creates new pods in order to complete successful the tasks required times.
+
+
+
+Parallel jobs
+-------------
+
+We can set parallel jobs to perform the task for short time.
+
+job-definition.yaml
+--------------------------------
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: math-add-job
+spec:
+  completions: 3				# completions required - 3
+  parallelism: 3				# create 3 pods in parallel to perform the job
+  template:
+    containers:
+    - name: random-error	
+      image: kodekloud/random-error		# simple docker image that randomly completes or fails
+    restartPolicy: Never
+--------------------------------
+
+
+Create the job
+	terminal --> k craete -f job-definition.yaml
+
+List jobs
+	terminal --> k get jobs
+
+	# result:
+	NAME		DESIRED		SUCCESSFUL		AGE
+	math-add-job	3		0			38s
+
+
+List pods related to the job
+	terminal --> k get pods
+
+	# result:
+	NAME			READY		STATUS		RESTARTS	AGE
+	math-add-job-ls34pn	0/1		Completed	0		2m	# 1 completed	
+	math-add-job-fa28sg	0/1		Error		0		2m	# 2 completed	# failed pod
+	math-add-job-s4sfc3	0/1		Completed	0		2m	# 3 completed
+
+	# First 3 pods are created at once, then new pods are created one by one to reach the required completions
+
+	math-add-job-s43sfs	0/1		Error		0		2m	# 2 completed	# created second
+	math-add-job-75dfds	0/1		Error		0		2m	# 2 completed	# created third
+	math-add-job-d343df	0/1		Completed	0		2m	# 3 completed	# created fourth
 
 
 
@@ -1474,8 +2244,391 @@ Section 6 103. Jobs
 Section 6 104. CronJobs
 =======================
 
+CronJobs are scheduled jobs (like crontab in Linux).
+
+
+Let say we have a job that create a report and send an email.
+
+cron-job-definition.yaml
+--------------------------------
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: reporting-cron-job
+spec:
+  schedule: "*/1 * * * *"			# schedule syntax
+  jobTemplate:
+    spec:
+      completions: 3				
+      parallelism: 3				
+      template:
+        containers:
+        - name: reporting-tool
+          image: reporting-tool
+        restartPolicy: Never
+--------------------------------
+
+We can find CronJob example foramt - https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#example
+We can find schedule syntax info - https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax
+
+
+Craete cron job
+	terminal --> k create -f cron-job-definition.yaml
+
+List cronjobs
+	terminal --> k get cronjob
+
+	# result:
+	NAME 			SCHEDULE	SUSPEND		ACTIVE
+	reporting-cron-job	*/1 * * * *	False		0
+
+
 
 =======================================
 Section 6 106. Practice Test - CronJobs
 =======================================
+
+1. A pod definition file named throw-dice-pod.yaml is given. The image throw-dice randomly returns a value between 1 and 6. 6 is considered success and all others are failure. Try deploying the POD and view the POD logs for the generated number.
+--------------------------------------------------------------------------------------------------------------------------------
+File is located at /root/throw-dice-pod.yaml
+
+
+Print the pod definition file
+	terminal --> cat /root/throw-dice-pod.yaml
+
+# result:
+----------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  name: throw-dice-pod
+spec:
+  containers:
+  -  image: kodekloud/throw-dice
+     name: throw-dice
+  restartPolicy: Never
+----------------------------------
+
+
+Create the pod
+	terminal --> k create -f throw-dice-pod.yaml
+
+	# result: pod/throw-dice-pod created
+
+List pods
+	terminal --> k get pods
+
+	# result:
+	NAME             READY   STATUS      RESTARTS   AGE
+	throw-dice-pod   0/1     Completed   0          37s	# in completed state
+
+Show pod logs
+	terminal --> k logs throw-dice-pod
+	
+	# result: 6
+
+
+- click 'Check' button
+
+
+
+
+2. Create a Job using this POD definition file or from the imperative command and look at how many attempts does it take to get a '6'.
+---------------------------------------------------------------------------------------------------------------------------------
+Use the specification given on the below.
+
+Job Name: throw-dice-job
+Image Name: kodekloud/throw-dice
+
+
+Find Job definition format - https://kubernetes.io/docs/concepts/workloads/controllers/job/#running-an-example-job
+
+
+Create a job definition file
+	terminal --> vi throw-dice-job.yaml
+
+throw-dice-job.yaml
+-------------------------------------
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: throw-dice-job			# set required name
+spec:
+  template:
+    spec:
+      containers:
+      - name: throw-job			# set appropriate name
+        image: kodekloud/throw-dice	# set required image
+      restartPolicy: Never
+  backoffLimit: 25			# set 25 attempts to assure completion
+-------------------------------------
+save changes - escape, :wq!, enter
+
+Create the job
+	termianl --> k create -f throw-dice-job.yaml
+
+	# result: job.batch/throw-dice-job created
+
+List jobs
+	terminal --> k get jobs
+
+	# result:
+	NAME             STATUS     COMPLETIONS   DURATION   AGE
+	throw-dice-job   Complete   1/1           35s        44s	# completed
+
+Show job details
+	terminal --> k describe job throw-dice-job
+
+# result:
+---------------------------
+...
+Pods Statuses:    0 Active (0 Ready) / 1 Succeeded / 2 Failed		# we see 2 times failed and 1 succeeded
+...
+---------------------------
+
+- click 'Check' button
+
+
+
+
+3. Monitor and wait for the job to succeed. Throughout this practice test remember to increase the 'BackOffLimit' to prevent the job from quitting before it succeeds.
+--------------------------------------------------------------------------------------------------------------------------------
+Check out the documentation page about the BackOffLimit property.
+
+We already increased the BackOffLimit count and the task was completed.
+
+- click 'Check' button
+
+
+
+
+4. How many attempts did it take to complete the job?
+-----------------------------------------------------
+
+
+List jobs
+	terminal --> k get jobs
+
+	# result:
+	NAME             STATUS     COMPLETIONS   DURATION   AGE
+	throw-dice-job   Complete   1/1           35s        44s	# completed
+
+Show job details
+	terminal --> k describe job throw-dice-job
+
+# result:
+---------------------------
+...
+Pods Statuses:    0 Active (0 Ready) / 1 Succeeded / 2 Failed	# we see 2 times failed and 1 succeeded - 3 in tital
+...
+---------------------------
+
+- choose '3' as answer
+
+
+
+
+5. Update the job definition to run as many times as required to get 2 successful 6's.
+--------------------------------------------------------------------------------------
+Delete existing job and create a new one with the given spec. Monitor and wait for the job to succeed.
+
+
+List jobs
+	terminal --> k get jobs
+
+	# result:
+	NAME             STATUS     COMPLETIONS   DURATION   AGE
+	throw-dice-job   Complete   1/1           35s        6m14s
+
+Delete the job
+	terminal --> k delete job throw-dice-job
+
+	# result: job.batch "throw-dice-job" deleted
+
+List files
+	terminal --> ls
+
+	# result: throw-dice-job.yaml  throw-dice-pod.yaml
+
+Edit the job definition file and modify the completions required
+	terminal --> vi throw-dice-job.yaml
+
+throw-dice-job.yaml
+---------------------------------
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: throw-dice-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: throw-job
+        image: kodekloud/throw-dice
+      restartPolicy: Never
+  backoffLimit: 25
+  completions: 2			# add completions property with value 2
+---------------------------------
+save changes - escape, :wq!, enter
+
+
+Create the job with modified definition file
+	terminal --> k create -f throw-dice-job.yaml
+
+	# result: job.batch/throw-dice-job created
+
+List jobs
+	terminal --> k get jobs
+
+	# result:
+	NAME             STATUS    COMPLETIONS   DURATION   AGE
+	throw-dice-job   Running   1/2           15s        15s
+
+Wait and keep listing the jobs until the completions are 2/2
+
+
+- click 'Check' button
+
+
+
+
+6. How many attempts did it take to complete the job this time?
+---------------------------------------------------------------
+
+
+Show details of the job to see the attempts
+	terminal --> k describe job throw-dice-job
+
+----------------------------
+...
+Pods Statuses:    0 Active (0 Ready) / 2 Succeeded / 7 Failed		# we can see the attempts
+...
+----------------------------
+
+
+- choose '9' as answer
+
+
+
+
+7. That took a while. Let us try to speed it up, by running upto 3 jobs in parallel.
+------------------------------------------------------------------------------------
+Update the job definition to run 3 jobs in parallel.
+
+
+List jobs
+	terminal --> k get jobs
+
+	# result:
+	NAME             STATUS     COMPLETIONS   DURATION   AGE
+	throw-dice-job   Complete   2/2           10m        15m
+
+Delete the job
+	terminal --> k delete job throw-dice-job
+
+	# result: job.batch "throw-dice-job" deleted
+
+List files
+	terminal --> ls
+
+	# result: throw-dice-job.yaml  throw-dice-pod.yaml
+
+
+Edit the job definition file and set parallel propery
+	terminal --> vi throw-dice-job.yaml
+
+throw-dice-job.yaml
+---------------------------------------
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: throw-dice-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: throw-job
+        image: kodekloud/throw-dice
+      restartPolicy: Never
+  backoffLimit: 25
+  completions: 3			# set required completions - 3
+  parallelism: 3			# added property with required value - 3
+---------------------------------------
+save changes - escape. :wq!, enter
+
+
+Create the job
+	terminal --> k create -f throw-dice-job.yaml
+
+	# result: job.batch/throw-dice-job created
+
+List jobs
+	terminal --> k get jobs
+
+	# result:
+	NAME             STATUS    COMPLETIONS   DURATION   AGE
+	throw-dice-job   Running   2/3           48s        48s		# we can see completions
+
+Wait and keep listing jobs until completions are 3/3
+
+- click 'Check' button
+
+
+
+8. Notice how quickly that finished.
+------------------------------------
+
+- clikcl 'Ok' button
+
+
+
+
+9. Let us now schedule that job to run at 21:30 hours every day.		CRON-JOB
+----------------------------------------------------------------
+Create a CronJob for this.
+
+CronJob Name: throw-dice-cron-job
+Image Name: kodekloud/throw-dice
+Schedule: 30 21 * * *
+
+We can see cron job definition format - https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#example
+We can see the schediule syntax - https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#writing-a-cronjob-spec
+
+Create cron job definition file
+	terminal --> vi cron-job.yaml
+
+cron-job.yaml
+------------------------------------
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: throw-dice-cron-job
+spec:
+  schedule: "30 21 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: throw-dice-cronjob
+            image: kodekloud/throw-dice
+          restartPolicy: Never
+------------------------------------
+save changes - escape, :wq!, enter
+
+
+Create the cron job
+	terminal --> k create -f cron-job.yaml
+
+	# result: cronjob.batch/throw-dice-cron-job created
+
+List cronjobs
+	terminal --> k get cronjob
+
+	# result:
+	NAME                  SCHEDULE      TIMEZONE   SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+	throw-dice-cron-job   30 21 * * *   <none>     False     0        <none>          33s
+
+- click 'Check' button
+
 
