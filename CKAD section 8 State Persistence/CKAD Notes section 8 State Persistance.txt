@@ -5,7 +5,6 @@ Section 8 123. Persistent VolumesSection 8 124. Persistent Volume Claims
 Section 8 125. Using PVC in Pods
 Section 8 xxx. Volumes Quiz
 Section 8 127. Practice Test - Persistent Volumes
-Section 8 128. Note on optional topics
 Section 8 129. Storage Classes
 Section 8 130. Practice Test - Storage Class
 Section 8 131. Why Stateful Sets?
@@ -18,57 +17,1836 @@ Section 8 133. Storage in StefulSets
 Section 8 122. Volumes
 ======================
 
+As we know in Docker when the container is destroyed, the data inside the container is also destroyed. To solve this issue we use volumes to store data outside of containers. 
+
+We use volumes in Kubernetes also. Lets look over a simple implementation in Kubernetes.
+
+We have one Node and one simple pod that generate a random number between 1 and 100 and save the result into a file at location /opt/number.out. We want to save the result and not to be destroyed when teh container is destroyed. For this purpos we set volume section in the pod-definition file. To connect the volume to the container we set 'volumeMounts' section in the pod-definition file.
+
+
+How to mount Node directory as volume:
+
+pod-definition.yaml
+-------------------------------------
+apiVErsion: v1
+kind: Pod
+metadata:
+  name: random-number-generator
+spec:
+  containers:
+  - image: alpine
+    name: alpine
+    command: ["/bin/sh", "-c"]
+    args: ["shuf -i 0-100 -n 1 >> /opt/number.out;"]
+    volumeMounts:
+    - mountPath: /opt					# save data in /opt folder in the container
+      name: data-volume					# connect the volume
+
+  volumes:						# set volumes
+  - name: data-volume
+    hostPath:				
+	path: /data					# set path		
+	type: Directory					# location type
+-------------------------------------
+
+A ranodm number now will be saved in location /opt inside the container that is on data-volume on the host. When the container is deleted, the number still exists in /data directory on the host.
+
+The example above is not recommended because all pods will use the same directory even if they are on different Node (host).
+
+
+Kubernetes supports several types of external storage solutions such as NFS, GlusterFS, Flocker, ceph, scaleio, aws elastic block volume, azure disk, google persistent disk.
+
+
+Configuration for AWS elastic block volume:
+
+pod-definition.yaml
+-------------------------------------
+apiVErsion: v1
+kind: Pod
+metadata:
+  name: random-number-generator
+spec:
+  containers:
+  - image: alpine
+    name: alpine
+    command: ["/bin/sh", "-c"]
+    args: ["shuf -i 0-100 -n 1 >> /opt/number.out;"]
+    volumeMounts:
+    - mountPath: /opt					# save data in /opt folder in the container
+      name: data-volume					# connect the volume
+
+  volumes:						# set volumes
+  - name: data-volume
+    awsElasticBlockStore:				# set external storage provider aws-ebs
+	volumeID: <volume-id>					
+	fsType: ext4
+-------------------------------------
+
+
+
 =================================
 Section 8 123. Persistent Volumes
 =================================
+
+We want to manage volumes more centralized and not to define volumes and mounts in every pod we create or modify. For this purpos we use Persistent Volumes. The calls from pods are named Persistent Volume Claims and They claim a specific part of the persistent volume that they are set to.
+
+
+Define PV with definition file with local storage directory
+-----------------------------------------------------------
+
+pv-definition.yaml
+-------------------------------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-vol1
+
+spec:
+  accessModes:
+      - ReadWriteOnce			# possible modes - ReadOnlyMany, ReadWriteOnce, ReadWriteMany
+  capacity:
+      storage: 1Gi
+
+  hostPath:				# set external storage provider aws-ebs
+      path: /tmp/data			
+-------------------------------------
+
+Craete persistent volume
+	termiinal --> kubectl create -f pv-definition.yaml
+
+List persistent volumes (PVs)
+	terminal--> kubectl get persistentvolume
+
+
+
+Define PV with definition file with cloud provider storage
+----------------------------------------------------------
+
+pv-definition.yaml
+-------------------------------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-vol1
+
+spec:
+  accessModes:
+      - ReadWriteOnce			# possible modes - ReadOnlyMany, ReadWriteOnce, ReadWriteMany
+  capacity:
+      storage: 1Gi
+
+  awsElasticBlockStore:			# set external storage provider aws-ebs
+      volumeID: <volume-id>					
+      fsType: ext4
+-------------------------------------
+
+
+Craete persistent volume
+	termiinal --> kubectl create -f pv-definition.yaml
+
+List persistent volumes (PVs)
+	terminal--> kubectl get persistentvolume
+
+
+
 
 =======================================
 Section 8 124. Persistent Volume Claims
 =======================================
 
+Persistent Volumes (PVs) and Persistent Volume Claims (PVCs) are two separate objects in Kubernetes namespace.
+
+- Administrator creates a set of Persistent Volumes (PVs).
+- User cteates Persistent Volumes Claims (PVCs) to use the storage.
+
+When Persistent Volume Claims (PVCs) are created, kubernetes automatically binds them with the Persistent Volumes (PVs) based on Request and properties set on the volume. The relationship between PVCs and PVs is 1:1 - one PVC is binded only to one PV. Kubernetes try to find PV with sufficient capacity as requested by the claim and any other properties such as Access Modes, Volume Modes, Storage Class etc.
+
+We can still use labels and selectors to set specific volume with specific claim. 
+
+Note that small claim bound to larger volume if all other criteria mathes and there are no better options.The 1:1 relationship of PV to PVC restrict the usage of the reminding resources on the volume by other PVCs.
+
+If no sufficient volume is available, the claim staying in 'Pedning' state until new volumes are available to the cluster. When new volumes are craeted, the pending claim will be automatically binded with them.
+
+
+Example Perisiten Volume Claim (PVC)
+------------------------------------
+
+pvc-definition.yaml
+-----------------------------------------------
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: myclaim
+
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+-----------------------------------------------
+
+Create the Persistent Volume Claim (PVC)
+	terminal --> kubectl craete -f pvc-definition.yaml
+
+List Persistent Volume Claims (PVCs)
+	terminal --> kubectl get persistentvolumeclaim
+
+
+Example of the claimed Persistent Volume:
+
+pv-definition.yaml
+-----------------------------------------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-vol1
+
+spec:
+  accessMode:
+    - ReadWriteOnce
+  capacity:
+    storage: 1Gi
+  awsElasticBlockStore:
+    volumeID: <volume-id>
+    fsType: ext4
+-----------------------------------------------
+
+The rest of the capacity of the volume is not available to other claim.
+
+Delete Persistent Volume Claim (PVC)
+	terminal --> kubectl delete persistentvolumeclaim myclaim
+
+The released persistent volume will continue to exist because of default PV option 'persistentVolumeReclaimPolicy: Retain'. If the option in set as 'persistentVolumeReclaimPolicy: Delete', the volume is deleted automatically after claim deletion. If this setting is not changed the released persistent volume must be manually deleted because is not available to other claims (PVCs). The third option is 'persistentVolumeReclaimPolicy: Recycle'. This will format (recycle) the volume and will make it available to other claims.
+
+
+
 ================================
 Section 8 125. Using PVC in Pods
 ================================
+
+Once you create a PVC use it in a POD definition file by specifying the PVC Claim name under persistentVolumeClaim section in the volumes section like this:
+
+
+pod-definition.yaml
+-----------------------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mypod
+spec:
+  containers:
+    - name: myfrontend
+      image: nginx
+      volumeMounts:
+      - mountPath: "/var/www/html"
+        name: mypd
+  volumes:
+    - name: mypd
+      persistentVolumeClaim:			# this is the section we need to add
+        claimName: myclaim
+-----------------------------------------------
+
+The same is true for ReplicaSets or Deployments. Add this to the pod template section of a Deployment on ReplicaSet.
+
+Reference URL: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#claims-as-volumes
+
+
+
 
 ===========================
 Section 8 xxx. Volumes Quiz
 ===========================
 
+
+Question 1:
+What type of volume is used to mount a Microsoft Azure Data Disk into a Pod?
+Reference: https://kubernetes.io/docs/concepts/storage/#types-of-volumes
+
+Answer - AzureDisk
+
+
+Question 2:
+What volume type is to be used to mount a directory from the node on which the pod is running?
+
+Answer - hostPath
+
+
+Question 3:
+What volume type is used to store data in a Pod only as long as that Pod is running on that node? When the Pod is deleted the files are to be deleted as well.
+
+- Answer - emptyDir
+
+
+Question 4:
+What is the fc volume type used for?
+
+- Answer - To mount an existing Fiber channel volume into a Pod
+
+
+
 =================================================
 Section 8 127. Practice Test - Persistent Volumes
 =================================================
 
-======================================
-Section 8 128. Note on optional topics
-======================================
+1. We have deployed a POD. Inspect the POD and wait for it to start running.
+----------------------------------------------------------------------------
+In the current(default) namespace.
+
+List pods
+	terminal --> k get pods
+
+	# result:
+	NAME     READY   STATUS    RESTARTS   AGE
+	webapp   1/1     Running   0          62s
+
+
+Show details of webapp pod
+	terminal --> k describe pod webapp
+
+- click 'Ok' button
+
+
+
+2. The application stores logs at location /log/app.log. View the logs.
+-----------------------------------------------------------------------
+
+You can exec in to the container and open the file:
+	terminal --> kubectl exec webapp -- cat /log/app.log
+
+	# kubectl 					- common kubernetes command
+	# exec						- execute command on the container
+	# webapp					- name of the container
+	# -- cat /log/app.log				- command
+
+- click 'Ok' button
+
+
+
+3. If the POD was to get deleted now, would you be able to view these logs.
+---------------------------------------------------------------------------
+
+Show pod details
+	terminal --> k describe pod webapp
+
+# result:
+Volumes:
+  kube-api-access-tlv5c:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    ConfigMapOptional:       <nil>
+    DownwardAPI:             true
+
+Only one volume is set in the container. After pod deletion we will not be able to see the logs.
+
+- choose 'No' as answer
+
+
+
+4. Configure a volume to store these logs at /var/log/webapp on the host.
+-------------------------------------------------------------------------
+Use the spec provided below.
+
+Name: webapp
+Image Name: kodekloud/event-simulator
+Volume HostPath: /var/log/webapp
+Volume Mount: /log
+
+List pods
+	terminal --> k get pods
+
+	# result:
+	NAME     READY   STATUS    RESTARTS   AGE
+	webapp   1/1     Running   0          62s
+
+
+Edit the pod
+	terminal --> k edit pod webapp
+
+webapp pod
+---------------------------------------------------------
+...
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-tlv5c
+      readOnly: true
+    - mountPath: /log		# added
+      name: log-volume		# added
+  dnsPolicy: ClusterFirst
+...
+  volumes:
+  - name: log-volume			# added from this line
+    hostPath:
+      path: /var/log/webapp		# to this line
+  - name: kube-api-access-tlv5c
+    projected:
+      defaultMode: 420
+...
+---------------------------------------------------------
+save changes - escape, :wq!, enter
+We receive error.
+exit editor - :q!, enter
+
+error: pods "webapp" is invalid
+A copy of your changes has been stored to "/tmp/kubectl-edit-3261734029.yaml"
+error: Edit cancelled, no valid changes were saved.
+
+When the pod is recreated, the volume will be mounted automatically.
+
+Recreate the pod
+	terminal --> k replace --force -f /tmp/kubectl-edit-3261734029.yaml
+
+	# result:
+	pod "webapp" deleted
+	pod/webapp replaced
+
+Wait until the pod is recraeted.
+
+Show the created log file in the volume
+	terminal --> ls /var/log/webapp		#result: app.log
+
+Print log file
+	terminal --> cat /var/log/webapp/app.log
+
+	# logs must be ptrinted on the console
+
+- click 'Check' button
+
+
+
+4. Create a Persistent Volume with the given specification.
+----------------------------------------------------------
+
+Volume Name: pv-log
+Storage: 100Mi
+Access Modes: ReadWriteMany
+Host Path: /pv/log
+Reclaim Policy: Retain
+
+Kubernetes Documentation: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes
+
+Create a file for PV defintion
+	terminal --> vi pv.yaml
+
+pv.yaml
+---------------------------------------------------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-log
+spec:
+  capacity:
+    storage: 100Mi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /pv/log
+---------------------------------------------------------
+save changes - escape, :wq!, enter
+
+
+Create Persisten Volume
+	terminal --> k create -f pv.yaml
+
+	# result: persistentvolume/pv-log created
+
+
+List PVs
+	terminal --> k get pv
+
+# result:
+NAME     CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS   VOLUMEATTRIBUTESCLASS   REASON   AGE
+pv-log   100Mi      RWX            Retain           Available                          <unset>                          31s
+
+- click 'Check' button
+
+
+
+
+6. Let us claim some of that storage for our application. Create a Persistent Volume Claim with the given specification.
+------------------------------------------------------------------------------------------------------------------------
+
+Persistent Volume Claim: claim-log-1
+Storage Request: 50Mi
+Access Modes: ReadWriteOnce
+
+Kubernetes Documentation: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims
+
+
+Create PVC file
+	terminal --> vi pvc.yaml
+
+pvc.yaml
+---------------------------------------------------------
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: claim-log-1
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Mi
+---------------------------------------------------------
+
+
+Create PVC
+	terminal --> k create -f pvc.yaml
+
+	# result: persistentvolumeclaim/claim-log-1 created
+
+Verify creation
+	terminal --> k get pvc
+
+# result:
+NAME          STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+claim-log-1   Pending                                                     <unset>                 8s
+
+- click 'Check' button
+
+
+
+7. What is the state of the Persistent Volume Claim?
+----------------------------------------------------
+
+List PVCs
+	terminal --> k get pvc
+
+# result:
+NAME          STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+claim-log-1   Pending                                                     <unset>                 8s
+
+- choose 'Pending' as answer
+
+
+
+8. What is the state of the Persistent Volume?
+----------------------------------------------
+
+Show PVs
+	terminal --> k get pv
+
+# result:
+NAME     CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS   VOLUMEATTRIBUTESCLASS   REASON   AGE
+pv-log   100Mi      RWX            Retain           Available                          <unset>                          7m38s
+
+- choose 'AVAILABLE' as answer
+
+
+
+
+9. Why is the claim not bound to the available Persistent Volume?
+-----------------------------------------------------------------
+
+List PVCs
+	terminal --> k get pvc
+
+	# result:
+	NAME          STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+	claim-log-1   Pending                                                     <unset>                 8s
+
+List PVs
+	terminal --> k get pv
+
+# result:
+NAME     CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS   VOLUMEATTRIBUTESCLASS   REASON   AGE
+pv-log   100Mi      RWX            Retain           Available                          <unset>                          7m38s
+
+
+Show details for pv
+	terminal --> k describe pv pv-log
+
+pv-log pv
+-------------------------
+Name:            pv-log
+Labels:          <none>
+Annotations:     <none>
+Finalizers:      [kubernetes.io/pv-protection]
+StorageClass:    
+Status:          Available
+Claim:           
+Reclaim Policy:  Retain
+Access Modes:    RWX					# check the access mode on the PVC
+VolumeMode:      Filesystem
+Capacity:        100Mi
+Node Affinity:   <none>
+Message:         
+Source:
+    Type:          HostPath (bare host directory volume)
+    Path:          /pv/log
+    HostPathType:  
+Events:            <none>
+-------------------------
+
+
+Show details for PVC
+	terminal --> k describe pvc claim-log-1
+
+claim-log-1 pvc
+-------------------------
+Name:          claim-log-1
+Namespace:     default
+StorageClass:  
+Status:        Pending
+Volume:        
+Labels:        <none>
+Annotations:   <none>
+Finalizers:    [kubernetes.io/pvc-protection]
+Capacity:      
+Access Modes:  						# the access mode is not as in the PV
+VolumeMode:    Filesystem
+Used By:       <none>
+Events:
+  Type    Reason         Age                   From                         Message
+  ----    ------         ----                  ----                         -------
+  Normal  FailedBinding  14s (x14 over 3m17s)  persistentvolume-controller  no persistent volumes available for this claim and no storage class is set
+-------------------------
+
+
+- choose 'Access Modes Mismatch' as answer
+
+
+
+
+10. Update the Access Mode on the claim to bind it to the PV.
+-------------------------------------------------------------
+Delete and recreate the claim-log-1.
+
+Persistent Volume Claim: claim-log-1
+Storage Request: 50Mi
+PVol: pv-log
+Status: Bound
+
+
+Edit PVC file
+	terminal --> vi pvc.yaml
+
+pvc.yaml
+---------------------------------------------------------
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: claim-log-1
+spec:
+  accessModes:
+    - ReadWriteMany		# changed
+  resources:
+    requests:
+      storage: 50Mi
+---------------------------------------------------------
+save changes - escape, :wq!, enter
+
+
+Recreate the PVC
+	terminal --> k replace --force -f pvc.yaml
+	
+	# result:
+	persistentvolumeclaim "claim-log-1" deleted
+	persistentvolumeclaim/claim-log-1 replaced
+
+- click 'Check' button
+
+
+
+11. You requested for 50Mi, how much capacity is now available to the PVC?
+--------------------------------------------------------------------------
+
+List PVs
+	terminal --> k get pv
+
+# result:
+NAME     CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                 STORAGECLASS   VOLUMEATTRIBUTESCLASS   REASON   AGE
+pv-log   100Mi      RWX            Retain           Bound    default/claim-log-1                  <unset>                  4m43s
+
+
+List PVCs
+	terminal --> k get pvc
+
+# result:
+NAME          STATUS   VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+claim-log-1   Bound    pv-log   100Mi      RWX                           <unset>                 2m54s
+
+- choose '100Mi' as answer
+
+
+
+
+12. Update the webapp pod to use the persistent volume claim as its storage.
+----------------------------------------------------------------------------
+Replace hostPath configured earlier with the newly created PersistentVolumeClaim.
+
+List pods
+	terminal --> k get pods
+
+# result:
+NAME     READY   STATUS    RESTARTS   AGE
+webapp   1/1     Running   0          7m54s
+
+
+Docker Documentation - https://kubernetes.io/docs/concepts/storage/persistent-volumes/#claims-as-volumes
+
+
+Edit the pod
+	terminal --> k edit pod webapp
+
+
+webapp pod
+--------------------------------------------------
+...
+  volumes:
+  - persistentVolumeClaim:		# changed
+      claimName: claim-log-1		# added
+    name: log-volume
+  - name: kube-api-access-9bjsc
+...
+--------------------------------------------------
+save changes - escape, :wq!, enter
+We receive error.
+exit editor - :q!, enter
+
+error: pods "webapp" is invalid
+A copy of your changes has been stored to "/tmp/kubectl-edit-201367380.yaml"
+error: Edit cancelled, no valid changes were saved.
+
+Reacraete the pod
+	terminal --> k replace --force -f /tmp/kubectl-edit-201367380.yaml
+
+	# result:
+	pod "webapp" deleted
+	pod/webapp replaced
+
+- click 'Check' button
+
+
+
+13. What is the Reclaim Policy set on the Persistent Volume pv-log?
+-------------------------------------------------------------------
+
+Print PV pv-log
+	terminal --> k describe pv pv-log
+
+# result: Reclaim Policy:  Retain
+
+- choose 'Retain'as answer
+
+
+
+14. What would happen to the PV if the PVC was destroyed?
+---------------------------------------------------------
+
+- choose 'The PV is not deleted but not available' as answer
+
+
+
+
+15. Try deleting the PVC and notice what happens.
+-------------------------------------------------
+If the command hangs, you can use CTRL + C to get back to the bash prompt OR check the status of the pvc from another terminal
+
+List pvcs
+	terminal --> k get pvc
+
+# result:
+NAME          STATUS   VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+claim-log-1   Bound    pv-log   100Mi      RWX                           <unset>                 18m
+
+Delete the PVC
+	terminal --> k delete pvc claim-log-1
+
+	# result: persistentvolumeclaim "claim-log-1" deleted
+
+Exit the terminal state
+	terminal --> Ctrl + C
+
+Open new terminal and List pvcs again
+	terminal --> k get pvc
+
+# result:
+NAME          STATUS        VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+claim-log-1   Terminating   pv-log   100Mi      RWX                           <unset>                 19m
+
+
+- choose 'The PVC is stuck in "terminating" state' as answer
+
+
+
+
+
+16. Why is the PVC stuck in Terminating state?
+----------------------------------------------
+
+Print the PVC claim-log-1
+	terminal --> k describe pvc claim-log-1
+
+claim-log-1 pvc
+--------------------------------------
+Name:          claim-log-1
+Namespace:     default
+StorageClass:  
+Status:        Terminating (lasts 2m49s)
+Volume:        pv-log
+Labels:        <none>
+Annotations:   pv.kubernetes.io/bind-completed: yes
+               pv.kubernetes.io/bound-by-controller: yes
+Finalizers:    [kubernetes.io/pvc-protection]
+Capacity:      100Mi
+Access Modes:  RWX
+VolumeMode:    Filesystem
+Used By:       webapp				# used by webapp Pod
+Events:        <none>
+--------------------------------------
+
+- choose 'The PVC is being used by a POD' as answer
+
+
+
+17. Let us now delete the webapp Pod.
+-------------------------------------
+Once deleted, wait for the pod to fully terminate.
+
+
+Delete the webapp pod
+	terminal --> k delete pod webapp
+
+	# result: 
+	pod "webapp" deleted
+	
+List PVCs
+	terminal --> k get pvc
+
+	# result:
+	No resources found in default namespace.
+
+- click 'Check' button
+
+
+
+18. What is the state of the PVC now?
+-------------------------------------
+
+- choose 'Deleted' as answer
+
+
+
+19. What is the state of the Persistent Volume now?
+---------------------------------------------------
+
+List PVs
+	terminal --> k get pv
+
+# result:
+NAME     CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS     CLAIM                 STORAGECLASS   VOLUMEATTRIBUTESCLASS   REASON   AGE
+pv-log   100Mi      RWX            Retain           Released   default/claim-log-1                  <unset>                 27m
+
+
+- choose 'Released' as answer
+
 
 ==============================
 Section 8 129. Storage Classes
 ==============================
 
+In the prevoius lectures and test we learned how to create PVs and PVCs and use them in Pods.
+
+
+
+Static Provisioning
+-------------------
+
+If we want to use external storage, first we need to create the sorage in the cloud and then manually create PV definition file using the same name as this of the cloud disk we created.
+
+Create Google cloud storage
+	terminal --> gcloud beta compute disks create --size 1GB --region us-east1 pd-disk
+
+
+Define PV
+
+pv-definition.yaml
+---------------------------------------------------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-vol1
+spec:
+  accessModes:
+    - ReadWriteOnce
+  capacity:
+    storage: 500Mi
+  gcePersistantDisk:
+    pdName: pd-disk
+    fsType: ext4
+---------------------------------------------------------
+
+Create PV
+	terminal --> k create -f pv-definition.yaml
+
+
+
+It would be good if the application automatically get the required storage when created. To solve this issue we can use Storage Classes.
+
+Dynamic Provisioning
+--------------------
+
+We use Storage Classes to automatically create storage on Google Cloud and attach the storage to the pods that need.
+
+We do not need PV object. We use Storage Class (SC) to set the PVC and pod setting
+
+
+Define Storage Class
+
+sc-definition.yaml
+---------------------------------------------------------
+apiVersion: v1
+kind: StorageClass
+metadata:
+  name: google-storage
+provisioner: kubernetes.io/gce-pd		# cloud storage provider
+---------------------------------------------------------
+
+
+Connect the storage class with the used PVC.
+
+pvc-definition.yaml
+---------------------------------------------------------
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: myclaim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassNmae: google-storage			# set connected class name
+  resources:
+    requests:
+      storage: 500Mi
+---------------------------------------------------------
+
+
+
+We can set the PVC used in the Pod definition file.
+
+pod-definition.yaml
+---------------------------------------------------------
+apiVErsion: v1
+kind: Pod
+metadata:
+  name: random-number-generator
+spec:
+  containers:
+  - image: alpine
+    name: alpine
+    command: ["/bin/sh", "-c"]
+    args: ["shuf -i 0-100 -n 1 >> /opt/number.out;"]
+    volumeMounts:
+    - mountPath: /opt
+      name: data-volume					
+
+  volumes:						
+  - name: data_volume
+    persistentVolumeClaim:		# this is the connected claim
+	claimName: myclaim
+---------------------------------------------------------
+
+
+This way when PVC is created, PV is automatically created on the specified provisioner (Google Cloud in this example) and binded with the POD.
+
+There are a lot of external provisioners plugins that can be used in the kubernetes space suc as AWSElasticBlockStore, AzureFile, AzureDisk, CephDisk, Cinder, FC, FlexVolume, Flocker, GCEPersistentDisk, Glusterfs, ISCSI, Quobyte, NFS, RBD, VsphereVolume, PortworxVolume, ScaleIO, StorageOS, Local etc.
+
+We can set additional parameters for the Storage Class (SC). They are specific for every provisioner.
+
+sc-definition.yaml
+---------------------------------------------------------
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: google-storage
+provisioner: kubernetes.io/gce-pd
+parameters:							# parameters section
+  type: pd-standard [ pd-standard | pd-ssd ]			# GCP specific parameters
+  replication-type: none [ none | regional-pd ]			# GCP specific parameters
+---------------------------------------------------------
+
+
+We have different classes - Silver, Gold or Platinum
+
+
+sc-silver-definition.yaml
+---------------------------------------------------------
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: silver
+provisioner: kubernetes.io/gce-pd
+parameters:							
+  type: pd-standard			
+  replication-type: none		
+---------------------------------------------------------
+
+
+sc-gold-definition.yaml
+---------------------------------------------------------
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gold
+provisioner: kubernetes.io/gce-pd
+parameters:							
+  type: pd-ssd			
+  replication-type: none		
+---------------------------------------------------------
+
+
+sc-platinum-definition.yaml
+---------------------------------------------------------
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: platinum
+provisioner: kubernetes.io/gce-pd
+parameters:							
+  type: pd-ssd			
+  replication-type: regional-pd		
+---------------------------------------------------------
+
+Next time we create a PVC we need to specify the class of storage for our volumes.
+
+
+
 ============================================
 Section 8 130. Practice Test - Storage Class
 ============================================
+
+1. How many StorageClasses exist in the cluster right now?
+----------------------------------------------------------
+
+List SCs
+	terminal --> k get sc
+
+# result:
+NAME                   PROVISIONER             RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+local-path (default)   rancher.io/local-path   Delete          WaitForFirstConsumer   false                  6m19s  
+
+- choose '1' as answer
+
+
+
+2. How about now? How many Storage Classes exist in the cluster?
+----------------------------------------------------------------
+We just created a few new Storage Classes. Inspect them.
+
+
+List CSs
+	terminal --> k get sc
+
+# result:
+NAME                        PROVISIONER                     RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+local-path (default)        rancher.io/local-path           Delete          WaitForFirstConsumer   false                  7m7s
+local-storage               kubernetes.io/no-provisioner    Delete          WaitForFirstConsumer   false                  32s
+portworx-io-priority-high   kubernetes.io/portworx-volume   Delete          Immediate              false                  32s
+
+- choose '3' as answer
+
+
+
+3. What is the name of the Storage Class that does not support dynamic volume provisioning?
+-------------------------------------------------------------------------------------------
+
+List CSs
+	terminal --> k get sc
+
+# result:
+NAME                        PROVISIONER                     RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+local-path (default)        rancher.io/local-path           Delete          WaitForFirstConsumer   false                  7m7s
+--------------------------------------------------------
+local-storage               kubernetes.io/no-provisioner    Delete          WaitForFirstConsumer   false                  32s
+--------------------------------------------------------
+portworx-io-priority-high   kubernetes.io/portworx-volume   Delete          Immediate              false                  32s
+
+We can see 'kubernetes.io/no-provisioner'.
+
+- choose 'local-storage' as answer
+
+
+
+4. What is the Volume Binding Mode used for this storage class (the one identified in the previous question)?
+-------------------------------------------------------------------------------------------------------------
+
+List CSs
+	terminal --> k get sc
+
+# result:
+NAME                        PROVISIONER                     RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+local-path (default)        rancher.io/local-path           Delete          WaitForFirstConsumer   false                  7m7s
+--------------------------------------------------------
+local-storage               kubernetes.io/no-provisioner    Delete          WaitForFirstConsumer   false                  32s
+--------------------------------------------------------
+portworx-io-priority-high   kubernetes.io/portworx-volume   Delete          Immediate              false                  32s
+
+Show details about local-storage sc
+	terminal --> k describe sc local-storage
+
+# result: VolumeBindingMode:     WaitForFirstConsumer
+
+- choose 'WaitForFirstConsumer' as answer
+
+
+
+5. What is the Provisioner used for the storage class called portworx-io-priority-high?
+---------------------------------------------------------------------------------------
+
+List CSs
+	terminal --> k get sc
+
+# result:
+NAME                        PROVISIONER                     RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+local-path (default)        rancher.io/local-path           Delete          WaitForFirstConsumer   false                  7m21s
+local-storage               kubernetes.io/no-provisioner    Delete          WaitForFirstConsumer   false                  2m3s
+portworx-io-priority-high   kubernetes.io/portworx-volume   Delete          Immediate              false                  2m3s
+
+
+Show details about sc portworx-io-priority-high
+	terminal --> k describe sc portworx-io-priority-high
+
+# result: Provisioner:           kubernetes.io/portworx-volume
+
+- choose 'portworx-volume' as asnwer
+
+
+
+6. Is there a PersistentVolumeClaim that is consuming the PersistentVolume called local-pv?
+-------------------------------------------------------------------------------------------
+
+List PVCs
+	terminal --> k get pvc
+
+	# result: No resources found in default namespace.
+
+- choose 'No' as answer
+
+
+
+7. Let's fix that. Create a new PersistentVolumeClaim by the name of local-pvc that should bind to the volume local-pv.
+-----------------------------------------------------------------------------------------------------------------------
+Inspect the pv local-pv for the specs.
+
+PVC: local-pvc
+Correct Access Mode?
+Correct StorageClass Used?
+PVC requests volume size = 500Mi?
+
+
+Create a PVC
+	terminal --> vi pvc.yaml
+
+Find Syntax on Kubernetes Documentation
+	- https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims
+
+pvc.yaml
+-----------------------------------------------
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: local-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+  storageClassName: local-storage
+-----------------------------------------------
+save changes - escape, :wq!, enter
+
+Create the PVC
+	terminal --> k create -f pvc.yaml
+
+	 result: persistentvolumeclaim/local-pvc created	
+
+Verify PVC creation 
+	terminal --> k get pvc
+
+# result:
+NAME        STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS    VOLUMEATTRIBUTESCLASS   AGE
+local-pvc   Pending                                      local-storage   <unset>                 58s
+
+- click 'Check' button
+
+
+
+8. What is the status of the newly created Persistent Volume Claim?
+-------------------------------------------------------------------
+
+List PVCs 
+	terminal --> k get pvc
+
+# result:
+NAME        STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS    VOLUMEATTRIBUTESCLASS   AGE
+local-pvc   Pending                                      local-storage   <unset>                 58s
+
+- choose 'Pending' as answer
+
+
+
+
+9. Why is the PVC in a pending state despite making a valid request to claim the volume called local-pv?
+--------------------------------------------------------------------------------------------------------
+Inspect the PVC events.
+
+Show details about PVC local-pvc
+	terminal --> k describe pvc local-pvc
+
+# result: Normal  WaitForFirstConsumer  11s (x13 over 3m6s)  persistentvolume-controller  waiting for first consumer to be created before binding
+
+- choose 'A Pod consuming the volume is not scheduled' as answer
+
+
+
+
+10. The Storage Class called local-storage makes use of VolumeBindingMode set to WaitForFirstConsumer. This will delay the binding and provisioning of a PersistentVolume until a Pod using the PersistentVolumeClaim is created.
+----------------------------------------------------------------------------------------------
+
+List Storage Classes
+	terminal --> k get sc
+	
+# result:
+NAME                        PROVISIONER                     RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+local-path (default)        rancher.io/local-path           Delete          WaitForFirstConsumer   false                  13m
+local-storage               kubernetes.io/no-provisioner    Delete          WaitForFirstConsumer   false                  8m41s
+portworx-io-priority-high   kubernetes.io/portworx-volume   Delete          Immediate              false                  8m41s
+
+
+- click 'Ok' button
+
+
+
+
+11. Create a new pod called nginx with the image nginx:alpine. The Pod should make use of the PVC local-pvc and mount the volume at the path /var/www/html.
+------------------------------------------------------------------------------------------------
+The PV local-pv should be in a bound state.
+
+Pod created with the correct Image?
+Pod uses PVC called local-pvc?
+local-pv bound?
+nginx pod running?
+Volume mounted at the correct path?
+
+
+Craete the pod definition file
+	terminal --> k run nginx --image=nginx:alpine --dry-run=client -o yaml > nginx.yaml
+
+Verify creation of the pod-definition file nginx.yaml
+	terminal --> cat nginx.yaml
+
+nginx.yaml
+-------------------------------------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: nginx
+  name: nginx
+spec:
+  containers:
+  - image: nginx:alpine
+    name: nginx
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+-------------------------------------------------------------
+
+
+Set additional settings to the pod-definition file nginx.yaml
+	terminal --> vi nginx.yaml
+
+Find syntax on Kubernetes documentation
+	- https://kubernetes.io/docs/concepts/storage/persistent-volumes/#claims-as-volumes
+
+nginx.yaml
+-------------------------------------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: nginx
+  name: nginx
+spec:
+  containers:
+  - image: enginx:alpine
+    name: nginx
+    resources: {}
+    volumeMounts:			# added
+      - mountPath: "/var/www/html"
+        name: local-pvc-volume		# added, this name must match the name of the volume
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+  volumes:				# added
+  - name: local-pvc-volume		# added
+    persistentVolumeClaim:		# added, must match the name of the volumeMounts section
+        claimName: local-pvc		# added
+status: {}
+-------------------------------------------------------------
+Save changes - escape, :wq!, enter
+
+Create the POD
+	terminal --> k create -f nginx.yaml
+
+	# ersult: pod/nginx created
+
+- click 'Check' button
+
+
+
+12. What is the status of the local-pvc Persistent Volume Claim now?
+--------------------------------------------------------------------
+
+List PVCs
+	terminal --> k get pvc
+
+# result:
+controlplane ~ ➜  k get pvc
+NAME        STATUS   VOLUME     CAPACITY   ACCESS MODES   STORAGECLASS    VOLUMEATTRIBUTESCLASS   AGE
+local-pvc   Bound    local-pv   500Mi      RWO            local-storage   <unset>                 19m
+
+- choose 'BOUND' as answer
+
+
+
+13. Create a new Storage Class called delayed-volume-sc that makes use of the below specs:
+------------------------------------------------------------------------------------------
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+
+Create definition file for sc
+	terminal --> vi delayed-volume-sc.yaml
+
+Find syntax for Storage class in Kubernetes documentation
+	- https://kubernetes.io/docs/concepts/storage/storage-classes/#storageclass-objects
+
+
+delayed-volume-sc.yaml
+----------------------------------------------------
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: delayed-volume-sc
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+----------------------------------------------------
+save changes - escape, :wq!, enter
+
+Create the Storage Class (SC)
+	terminal --> k create -f delayed-volume-sc.yaml
+
+	# result: storageclass.storage.k8s.io/delayed-volume-sc created
+
+
+Verify Storage Class (SC) creation
+	terminal --> k get sc
+
+# result: 
+delayed-volume-sc           kubernetes.io/aws-ebs           Delete          WaitForFirstConsumer   false                  33s
+
+if we make a mistake in the definition file we can fix it and the replace the object with the fixed definition
+	terminal --> k replace --force -f delayed-volume-sc.yaml
+
+- click 'Check' button
+
+
 
 =================================
 Section 8 131. Why Stateful Sets?
 =================================
 
+Why we need stateful sets?
+
+We will start with a simple server with installed MySQL DB. Due to High Availability requirements we install 2 more copies of MySQL DBs.
+
+
+Simple SQL replication process
+------------------------------
+
+We have single master & multi slave topology where any write are executed on the master and reads can be executed from any of the slaves or the master server. 
+
+						-----------------
+						|    Master	|
+						|     MySQL	|
+						|		|		
+						|		|		
+						|		|
+						-----------------
+						mysql-master
+
+
+			-----------------				-----------------
+			|    slave-1	|				|    slave-2	|
+			|     MySQL	|				|     MySQL	|
+			|		|				|		|
+			|		|				|		|
+			|		|				|		|
+			-----------------				-----------------
+			MASTER_HOST=mysql-master			MASTER_HOST=mysql-master
+
+
+Steps to set up high availability SQL topology
+----------------------------------------------
+
+1. Master server mmust be set up first before deploying the slaves.
+ 
+2. Once the slaves are deployed, we perform an initial clone from the master server to the first slave.
+3. After the initial copy, we enable continuous replication from master to slave-1 so the DB on slave-1 is always in sync with the master DB.
+
+We can set the slave-2 the same way but we will load the master more. Better approach is to use slave-1 DB to set up the slave-2.
+
+4. Wait slave-1 to be ready.
+5. Clone data from slave-1 to slave-2.
+6. Enable continuous replication from the Master DB to slave-2 DB .
+7. Configure Master Address on Slaves.
+
+
+
+How to implement this topology in Kubernetes
+--------------------------------------------
+
+Instead of Servers (Master and 2 slaves) we have 3 PODs part of a Deployment that we easily can scale up and down as required.
+
+We know that PODs in deployments are created at the same time so we cannot follow the same steps as in the previous example.
+To set a master POD we need to set a constant hostname or address (that does not change). This mean that we need static hostname.
+We know also that if the pod crashes and the deployment create a new one it is not with the same name. We cannot relay on the name of the POD.
+
+This issue is solved with STATEFUL SETS. 
+
+
+STATEFUL SETS
+=============
+
+STATEFUL SETS are similar to Deployment Sets as they create PODs based on a template that they can scale up and scale down, perform rolling updates and rollbacks, but there are some differences.
+
+In StatefulSets the Pods are created sequentially. After the first Pod is created, it must be in READY state to create the second one and so on. That help us ensure that the master is deployed first and then slave-1 and then slave-2. This ensure successful execution of step 1 and step 4 from the process we previous went true.
+
+StatefulSets set indexes for each POD in the set from 0 to n-1. Each POD is assigned with static name derived from this index combined with the name of the satetful set. This assure that no random names are given too the PODs. That means that we can use mysql-0 as name for the Master POD in any setup.
+
+In case of scaling up the setup, slave mysql-3 know that have to clone the DB from mysql-2. To enble continuous replication we can point the slaves PODs to master POD with name mysql-0. Even if the Master POD fails and is recreated, it still be with the same name mysql-0. 
+
+Stateful Sets maintain a sticky identity for each of their PODs and this help with the rest of the steps from the process - 2,3, 5,6,7.
+
+
+
 =========================================
 Section 8 132. Stateful Sets Introduction
 =========================================
+
+We have to decide if we need to use a stateful set. It depends on the application we are going to deploy. If the instances need to come up in particular order and they need a stable name etc.
+
+Once we decide we will use a steful set we can create a stateful set definition file. Its the same as Deplyment definition file. Stateful set  definition file also requires a 'serviceName:' field at the end for a headless service.
+
+statefulset-definition.yaml
+-----------------------------------
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  labels:
+    app: mysql
+
+spec:
+  template:
+    metadata:
+      labels:
+	app: mysql
+    spec:
+      containers:
+      - name: mysql
+	image: mysql
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mysql
+  serviceName: mysql-h			# set a headless service parameter
+-----------------------------------
+
+Create the stateful set
+	terminal --> k create -f statefulset-definition.yaml
+
+	# result: statefulset.apps/mysql created
+
+This creates Ordered, graceful deployemnt - create PODs one after another. Also each created POD get stable, unique network identifier (DNS record) aht any othe application on the network can use to access the POD. 
+
+
+When we scale the stateful set it is scaled in ordered gracefull fasion - PODs are created one after another. This can be used to scale MySQL instances as each new POD is created from the previous one.
+
+Scale the stateful set
+	terminal --> k scale statefulset mysql --replicas=5
+
+	# result: statefulset.apps/mysql scaled
+
+
+When we want to scale down stateful set the PODs are deleted from the last to the first.
+
+Delete the stateful set
+	terminal --> k scale statefulset --replicas=3
+
+	# result: statefulset.apps/mysql scaled
+
+
+When we delete stateful set the PODs are deleted in the reversed order.
+
+Delete stateful set
+	terminal --> k delete statefulset mysql
+
+	# result: statefulset.apps/mysql deleted
+
+
+We can set a 'PodManagementPolicy' field to instruct the stateful set to not follow an ordered approach but manage all PODs in parallel. The default vallue of this field is 'PodManagementPolicy: OrderedReady'.
+
+- https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#deployment-and-scaling-guarantees
+
+
+statefulset-definition.yaml
+-----------------------------------
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  labels:
+    app: mysql
+
+spec:
+  template:
+    metadata:
+      labels:
+	app: mysql
+    spec:
+      containers:
+      - name: mysql
+	image: mysql
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mysql
+  serviceName: mysql-h			
+  podManagementPolicy: Parallel		# set POD management approach
+-----------------------------------
+
+
 
 ================================
 Section 8 133. Headless Services
 ================================
 
+When we create a stateful set it deploys one Pod at a time. Set an ordinal index and every Pod has a stable unique name. This way each slave (mysql-1 and mysql-2) can point to reach the the master at mysql-0.
+
+Lets say we have web server that have to access the DB PODs. We need to have a service to access the PODs from the web server. As we know the service acts like a load ballancer. The traffic coming into the service is ballanced between all PODs in the deployment. The service has ClusterIP (10.96.0.10) and DNS name associated with it (mysql.default.svc.cluster.local).
+
+
+				--------------------	
+				|    Web Server	   |
+				|		   |
+				|		   |
+				--------------------
+					^
+					|
+					|
+					v
+
+				       mysql
+				      service
+					/\
+	      mysql-h		       /  \		ClusterIP 10.96.0.10
+		/\		      /	   \		DNS name: mysql.default.svc.cluster.local
+	       /  \ 		     /	    \
+	      /	   \		    ----------
+	     --------			|
+					|
+		-------------------------------------------------	
+		|			|			|
+		|			|			|
+		v			v			v
+		
+	     index-0		    index-1		    index-2	
+	-----------------	-----------------	-----------------	
+	|     POD 1 	|	|     POD 2 	|	|     POD 3	|
+	|    mysql-0	|	|    mysql-1 	|	|    mysql-3 	|
+	|     		|	|     		|	|     		|
+	-----------------	-----------------	-----------------
+	MASTER			MASTER_HOST=mysql-0	MASTER_HOST=mysql-0
+
+
+The Web Server now can read from the Database Pods but cannot write, because the traffic is routed between all Pods. So we want to point the write to be routed to the Master POD only. 
+
+If we know the IP of the master POD we can configure that in the web server. But as we know the IP addresses ar edynamic and can be changed if the Master POD is recreated, so we can't use that. We know that each POD can be reached true its DNS address but the PODs DNS address is created by the POD's IP address so we can't use that aither.
+
+
+What we need is a service that does not ballance request but give us a DNS entry to reach each POD and what a headless service is.
+
+
+HEADLES SERVICE
+===============
+
+A headles service is created as normal service but do not have an IP on its own (like a ClusterIP for a normal service). It does NOT perform any load ballancing. All it does is to create a DNS entry using the POD's name and its subdomain.
+
+When we create a headless service mysql-h, each POD get DNS name craeted in the form: 
+	- podname.headless-servicename.namespace.svc.cluster-domain.example
+
+Example mames for PODs in the example topology above
+	- mysql-0 (MASTER)  POD 1 name: mysql-0.mysql-h.default.svc.cluster.local 
+	- mysql-1 (SLAVE 1) POD 2 name: mysql-1.mysql-h.default.svc.cluster.local 
+	- mysql-2 (SLAVE 2) POD 3 name: mysql-2.mysql-h.default.svc.cluster.local 
+
+This DNS entry (mysql-0.mysql-h.default.svc.cluster.local) will always point to the MASTER (POD 1) in the MySQL Deployment.
+
+
+To create a headless service we need to create a service definition file as a normal service
+
+headless-service.yaml
+---------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-h
+
+spec:
+  ports:
+  - port: 3306
+  selector:
+      app: mysql
+  clusterIP: None		# this property defines that the service is headless
+---------------------------------------
+
+When the headless service is created the DNS entries are created for PODs only if the two conditions are met. When creating the POD under the 'spec' section of a Pod definition file we have 2 optional fields 'hostname' and 'subdomain'. We have to specify the value of the subdomain to the name of the headless service. When we do this it creates a DNS record for the name of the service to point to the Pod. It still do not create a record for an individual Pods. For that we need to specify the 'hostname' option in the pod definition file. Only then it creates a DNS record with Pod's name as well.
+
+
+Example pod definition file connected with headless service:
+
+pod-definition.yaml
+---------------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+  labels:
+    app: mysql
+spec:
+  containers:
+  - name: mysql
+    image: mysql
+
+  subdomain: mysql-h		# specify the headless service name
+  hostname: mysql-pod		# specify the host name for the pod
+---------------------------------------
+
+
+
+Example of the Deployment (StatefulSet) definition file with Pod template connected with headless service
+
+deployment-definition.yaml
+---------------------------------------
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: myapp-deployment
+  labels:
+    app: mysql
+spec:
+  serviceName: mysql-h			# specify the headless service 
+  replicas: 3
+  matchLabels:
+    app: mysql
+
+  template:
+    metadata:
+      name: myapp-pod
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql
+---------------------------------------
+
+There is another difference between a Deployment and a StatefulSet. 
+If we specify the fields 'hostname' and 'subdomain' in the Deplyment definition file, all pods will be with the same DNS record connected to the headless service. When we create a StatefulSet we do not need to specify 'hostname' and 'subdomain' fields. The StatefulSet automatically assigns the right hostname for each Pod based on the Pod's name and it automatically assigns the right subdomain based on the headless service name. To connect the StatefulSet to headless service we need to specify 'serviceName' field under 'spec' in the definition file. That is how it knows what subdomain name to assign to the Pods. The StatefulSet takes the names that we specified and adds that to the subdomain property when the Pod is created. All Pods now gets a separate DNS record created.
+
+
+
 ====================================
 Section 8 133. Storage in StefulSets
 ====================================
 
+Recap about storage in Kubernetes
+
+pv-definition.yaml			pvc-definition.yaml			pod-definition.yaml
+-------------------------------		-------------------------------		-------------------------------
+apiVersion: v1				apiVersion: v1				apiVersion: v1
+kind: PersistentVolume			kind: PersistentVolumeClaim		kind: Pod
+metadata:				metadata:				metadata:
+  name: pv-vol1				  name: data-volume			  name: mysql
+spec:					spec:					spec:
+  accessModes:				  accessModes:				  containers:
+    - ReadWriteOnce			    - ReadWriteOnce                       - image: mysql
+  capacity:				  storageClassName: google-storage	    name: data-volume
+    storage: 500Mi			  resources:				  volumes:
+  gcePeersistentDisk:			    requests:				  - name: data-volume
+    pdName: pd-disk			      storage: 500Mi			    persistentVolumeClaim:
+    fsType: ext4								      claimName: data-volume
+-------------------------------		-------------------------------		-------------------------------
+
+	PV						PVC					POD
+
+We create Persisten Volumes (PVs) objects which are then claimed by Persistent Volume Claims (PVCs) and finally used in pod-definition files within Pods.
+
+
+With Dynamic Provisioning - Sotage Classes (SCs) definition we take out the manual creation of Persisten Volumes and use Storage Provisioners to automatically provision volumes on cloud providers. PV is created automatically, but we create a PVC manually and associate that to a POD in pod-definition file.
+
+sc-definition.yaml
+-------------------------------	
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: google-storage
+provisioner: kubernetes.ioi/gce-pd
+-------------------------------	
+
+
+This is working fine with Pod with a volume. How does this change with Deployments or StatefulSets?
+
+
+With StatefulSets when we specify the same PVC under the pod definition, all pods created by this stateful set tries to use the same volume. That is possible if that is what is desired. If we want multiple instances of our application to share and access the same storage, this is how we configure it. And that also depends on the kind of the volume created and the provisioner used. Not all storage types support that operation. Read or write from multiple instances in the same time.
+
+SC <---> PV <---> PVC --- storage 1
+
+statefulset-definition.yaml
+--------------------------------------
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  labels:
+    app: mysql
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql
+        volumeMounts:
+	- mountPath: /var/lib/mysql
+	  name: data-volume
+      volumes:
+	- name: data-volume
+	  persistentVolumeClaim:
+	    claimName: data-volume
+--------------------------------------
+
+
+What if we want a separate volume for each pod as in the MySQL replication usecase we have talking about. The Pods don't want to share data instead each Pod nedd its local storage. Each instance has its own database and the replication of data between the databases is done at a database level. So then each Pod need a separate PV and a PVC for itself.
+
+
+SC ---> PV 1 <---> PVC <---> Storage 1
+  \ 
+   ---> PV 2 <---> PVC <---> Storage 2
+    \ 
+     -> PV 3 <---> PVC <---> Storage 3
 
 
 
+So how we create automatically a PVC for each Pod in a StatefulSet?
 
+We can achieve that using a volume claim template in the StatefulSet definition file
+
+This is the PVC template:
+
+pvc-definition.yaml
+--------------------------------------
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-volume
+spec:
+  accessModes:
+    - ReadWriteOnce
+  stprageClassName: google-storage
+  resources:
+    requests:
+      storage: 500Mi
+--------------------------------------
+
+
+We move the PVC specification under 'volumeClaimTemplates' array section in the StatefulSet definition file
+
+statefulset-definition.yaml
+--------------------------------------
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  labels:
+    app: mysql
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql
+        volumeMounts:
+	- mountPath: /var/lib/mysql
+	  name: data-volume
+      volumes:
+	- name: data-volume
+	  persistentVolumeClaim:
+	    claimName: data-volume
+  volumeClaimTemplates:
+  - metadata:
+      name: data-volume
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      stprageClassName: google-storage
+      resources:
+        requests:
+          storage: 500Mi
+--------------------------------------
+
+
+Now we have StatefulSet with volumeClaimTemplates, storage class definition with the right provisioner.
+
+sc-definition.yaml
+-------------------------------	
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: google-storage
+provisioner: kubernetes.ioi/gce-pd
+-------------------------------	
+
+
+When the StatefulSet is created it creates the first Pod and during the creation of the Pod, a PVC is created, the PVC is associated with Storage class, so the storage class provision a volume on GSP (google storage provider) and then creates a PV and associates the PV with the volume and binds the PVC to the PV.
+
+Then the second Pod is created, the second Pod creates a PVC, then a storage class provisions a new volume, associate that with a PV and binds the PV with the PVC and so on for the third Pod.
+
+What happens when one of the Pods failed and new one is recreated or rescheduled on to a Node? StatefulSets DO NOT automatically delete the PVC or the associated volume to the Pod. Instead it ensures that the Pod is reattached to the same PVC that was attached to before. StatefulSets ensure stable storage for Pods.
+
+Conmclusion
+-----------
+StatefulSets are used more for Databases Pods and custom storage usages like many pods to share the same storage.
 
 
