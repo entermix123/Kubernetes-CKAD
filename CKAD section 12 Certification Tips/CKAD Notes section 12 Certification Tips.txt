@@ -8,6 +8,138 @@ Section 13 173. Additional Tips
 Section 12 172. Time Management
 ===============================
 
+CKA - 3 hours / 24 questions
+CKAD - 2 hours / 19 questions
+
+Tip #1: Attempt all questions
+-----------------------------
+
+Time is not enought by default so time management is critical. We should go true all question and answer every one if easy enough. Second run we should look over questions that we have chance to answer right. And in the third run we should try to solve the questions we are least confident about.
+
+
+Tip #2: Don't get stuck on any question
+---------------------------------------
+
+Even if the question is easy and we cannot solve it in few minutes, mark it for later and go to the next question.
+
+
+Tip #3: Get good with YAML files
+--------------------------------
+
+Prepare templates for Kubernetes object and only addjust some details during the exam. Do not lose time to get files pretty. The result must be working!
+
+
+Tip #4: Use shortcuts/Aliases
+-----------------------------
+
+po - Pods
+rs - ReplicaSets
+deploy - Deployment
+svc - Services
+ns - Namespaces
+netpol - Network Policies
+pv - Persistent Volumes
+pvc - PersistantVolumeClaims
+sa - Service Accounts
+
+
+
 ===============================
 Section 12 173. Additional Tips
 ===============================
+
+Video for CKAD preparation - https://www.youtube.com/watch?v=rnemKrveZks&ab_channel=MuralidaranShanmugham
+
+Exam preparation Tips
+---------------------
+1. Go true the Kubernetes documentation
+	- Concepts - https://kubernetes.io/docs/concepts/
+	- Tasks - https://kubernetes.io/docs/tasks/
+
+2. Be good at YAML
+	- prepare templates for most Kubernetes objects and only addjust some details during the exam. 
+
+3. Go true all questions. Do not lose much time on one question. If we can't solve it for few minutes, mark it for later and move on to the next question.
+
+4. Be good with text editor - nano or vi
+	Some key combinations with vi editor
+		- search: /<searched word>, enter
+		- delete lines: <count lines>dd - 5dd - delete current and next 4 lines
+		- enable editing: insert
+		- disable editing: escape or ctrl + c
+		- save changes and quit: :wq!, enter
+		- quit file without saving changes: :q!, enter
+	
+5. Use kubectl alias to save few minutes typing
+
+6. Know context and namespaces set commands and use them
+	Set different context in specific namespace
+		terminal --> k config set-context mycontext --namespace=mynamespace
+
+7. Use explain command
+	terminal --> kubectl explain cronjob.spec.jobTemplate --recursive
+
+	# --recursive print all peroperties of the object
+
+8. Know kubectl commands and ensure you can use the references fast enough
+	- https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands
+	- go true every command and practice finding the right command
+
+9. Use YAML generators
+	- --dry-run commands
+
+
+
+Examples for useful command
+---------------------------
+
+kubectl run nginx --image-nginx (deployment)
+
+kubectl run nginx --image-nginx --restart=Never (pod)
+
+kubectl run nginx --image-nginx --restart=OnFailure --schedule="* * * * *" (cronjob)
+
+
+Create and print POD template with more properties
+	terminal --> kubectl run nginx --image=nginx --restart=Never --port=80 --namespace=mynamespace --command -- serviceaccount=mysa1 --env=HOSTNAME=local --labels=bu=finance,env=dev -- requests='cpu=100m,memory=256Mi' --limits='cpu=200m,memory=512Mi' --dry-run -o yaml -- /bin/sh -c 'echo hello world'
+
+
+Useful commands to use without creating objects templates and adding properties
+-------------------------------------------------------------------------------
+
+Create example deployemnt
+terminal --> kubectl run frontend --replicas=2 --labels=run=load-balancer-example --image=busybox --port=8080
+
+Create service for created depolyment above
+	terminal --> kubectl expose deployment frontend --type NodePort --name=frontend-service --port=6262 --target-port=8080
+
+Attach service account for created deployment
+	terminal --> kubectl set serviceaccount deployment frontend myuser
+
+Create and print service template for ClusterIP
+	terminal --> kubectl create service clusterip my-cs --tcp=5678:8080 --dry-run -o yaml
+
+
+
+Unix bash one-liners:
+---------------------
+args: ["-c", "while true; do date >> /var/log/app.txt; sleep 5; done"]
+
+args: [/bin/sh, -c,'i=0; while true; do echo "$i: $(date)"; i=$((i+1)); sleep 1; done']
+
+args: ["-c", "mkdir -p collect; while true; do cat /var/data/* > /collect/data.txt; sleep 10; done"]
+
+
+a=10;b=5; if [$a -le $b]; then echo "a is small"; else echo "b is small"; fi
+
+x=1; while [$x -le 10]; do echo "welcome $x times"; x=$((x+1)); done
+
+
+Use GREP:
+
+kubectl describe pods | grep --context=10 annotations:
+
+kubectl describe pods | grep --context=10 Events:
+
+
+
