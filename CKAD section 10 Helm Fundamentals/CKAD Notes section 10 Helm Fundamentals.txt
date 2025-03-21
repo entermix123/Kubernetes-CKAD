@@ -7,26 +7,559 @@ Section 10 168. Helm Concepts
 Section 10 170. Labs - Helm Concepts
 
 
+
 =================================
 Section 10 164. Helm Introduction
 =================================
+
+Helm is package manager for Kubernetes
+
+Example for useing Helm
+	terminal --> helm install wordpress
+
+# result: values.yaml file is created with all settings of wordpress application.
+
+We can the edit the values.yaml file and upgrade the wordpress application
+	terminal --> helm upgrade wprdpress
+
+If we make a mistake we can rollback versions
+	terminal --> helm rollback wordpress
+
+We can uninstall app with one command
+	terminal --> helm uninstall wordpress
+
+	# helm keep track of all files used by each app so it knows what to remove
+
+HELM allows us to treat kubernetes apps as apps and not as set of objects that we need to manage manually one by one. This is great ease!
+
+
+
 
 ============================
 Section 10 165. Install Helm
 ============================
 
+For installing HELM we need
+	- Working Kubernetes Cluster
+	- Installed and configured kubectl utilily with the kubeconfig file and credentials
+	INFO: https://helm.sh/docs/intro/install/
+
+
+INstall HELM on Linux
+=====================
+
+Isntall HELM on Linux system
+	terminal --> sudo snap install helm --classic		
+
+# --classic version give more access to the host system, rather strictly isolating it to its separate environment
+This sway HELM can easilly access the kubeconfig file in our home directory - knows how to connect to our kubernetes cluster
+
+For apt based systems (Debian or Ubuntu)
+----------------------------------------
+	terminal --> curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+sudo apt-get install apt-transport-https --yes
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+sudo apt-get update
+sudo apt-get install helm
+
+For package based systems (Windows)
+	terminal --> pkg install helm
+
+Always refer to latest instructions in the documentation pages - https://helm.sh/docs/intro/install/
+
+
 ===================================
 Section 10 167. Labs - Install Helm
 ===================================
+
+1. Identify the name of the Operating system installed.
+-------------------------------------------------------
+
+Identify the OS on our machine
+	terminal --> cat /etc/*release*
+
+# result:
+-------------------------------
+DISTRIB_ID=Ubuntu			# we are on Ubuntu OS
+DISTRIB_RELEASE=22.04
+DISTRIB_CODENAME=jammy
+DISTRIB_DESCRIPTION="Ubuntu 22.04.5 LTS"
+PRETTY_NAME="Ubuntu 22.04.5 LTS"
+NAME="Ubuntu"
+VERSION_ID="22.04"
+VERSION="22.04.5 LTS (Jammy Jellyfish)"
+VERSION_CODENAME=jammy
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=jammy
+-------------------------------
+
+- choose 'Ubuntu' as answer
+
+
+
+2. Install the helm package on the controlplane node.
+-----------------------------------------------------
+If unsure how to install the helm tool, feel free to refer to the documentation. The Documentation tab is available at the top right panel.
+
+Helm Documentation Installation for Ubuntu 
+	- https://helm.sh/docs/intro/install/#from-apt-debianubuntu
+
+Install Helm
+	terminal --> curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+sudo apt-get install apt-transport-https --yes
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+sudo apt-get update
+sudo apt-get install helm
+
+
+- click 'Check' button
+
+
+
+3. Use the help page of helm command to identify the command used to retrieve helm client environment information.
+------------------------------------------------------------------------------------------------------------------
+
+Show helm commands
+	terminal --> helm --help
+
+# result:
+-------------------------------------------------------------------
+Available Commands:
+  completion  generate autocompletion scripts for the specified shell
+  create      create a new chart with the given name
+  dependency  manage a chart's dependencies
+  env         helm client environment information				# we need this command
+  get         download extended information of a named release
+-------------------------------------------------------------------
+
+- choose 'env' as answer
+
+
+4. Identify the version of helm installed on the cluster.
+---------------------------------------------------------
+
+Show Helm version 
+	terminal --> helm version
+
+# result: version.BuildInfo{Version:"v3.16.4", GitCommit:"7877b45b63f95635153b29a42c0c2f4273ec45ca", GitTreeState:"clean", GoVersion:"go1.22.7"}
+
+- choose '3.16.4' as answer
+
+
+
+5. What is a command line flag that can be used to enable verbose output?
+-------------------------------------------------------------------------
+
+
+Show helm commands
+	terminal --> helm --help
+
+# result:
+----------------------------------------------
+...
+Flags:
+      --burst-limit int                 client-side default throttling limit (default 100)
+      --debug                           enable verbose output					# this is the command
+  -h, --help                            help for helm
+...
+----------------------------------------------
+
+OR 
+
+Show help commands for verbosity
+	terminal --> helm --help | grep verbose
+
+# result:       --debug                           enable verbose output
+
+- choose '--debug' as answer
+
+
+
+6. That's all for now. That was a quick introduction to the helm command line utility. Feel free to explore the helm command line utility further. We will learn more about these commands throughout the remainder of this course.
+-------------------------------------------------------------------------------------------------
+
+- click 'Ok' button
+
+
+
 
 =============================
 Section 10 168. Helm Concepts
 =============================
 
+We have all defintion yaml files in one place - deployment.yaml, service.yaml, secret.yaml, pv.yaml, pvc.yaml etc.
+
+We know that some values may change depending on the environment we use to deploy our application. Users can prefer to use different images, have different CPU or storage requirements, admin passwords (credentials) and so on. 
+
+So the first step is to convert this definition files into templates where this values become variables.
+
+Example for templates/pv.yaml
+--------------------------------------
+apiVersion: v1
+kind: PersistantVolume
+metadata:
+  name: wordpress-pv
+spec:
+  capacity:
+    storage: {{ .Values.storage }}		# set variables in double curly brackets {{ }}
+  accessModes:
+    - ReadWriteOnce
+  gcePersistentDisk:
+    pdName: wordpress-2
+    fsType: ext4
+--------------------------------------
+
+
+Example for values.yaml file
+--------------------------------------
+image: wordpress:4.8-apache		# used in the deployment.yaml template
+storage: 20Gi				# used in the pv.yaml template
+passwordEncoded: CasfWEreD134S3az0	# used in the secret.yaml template
+--------------------------------------
+
+So the combination of templates and values.yaml give us the final version of definition files we can use to deploy our application on the Kubernetes cluster. Together the templates and the values file forms a HELM Chart.
+
+
+Helm Chart
+==========
+
+Helm Chart can be used to deploy a simple application like wordpress in our example. And it will have all the necessary template files with the different services as well as the values file with the variables. It also has a Chart.yaml file that has information about the Chart itself.
+
+Cart.yaml
+--------------------------------------------
+apiVersion: v2
+name: Wordpress
+version: 9.0.3
+description: Web publishing platform for building blogs and websites.
+keywords:
+  - wordpress
+  - cms
+  - blog
+  - http
+  - web
+  - application
+  - php
+name: http://www.wordpress.com/
+sources:
+  - https://github.com/bitnami/bitnami-docker-wordpress
+maintainers:
+  - email: containers@bitnami.com
+    nameL Bitnami
+--------------------------------------------
+
+
+
+We can make our oun Charts or explore existing Charts on public hub https://artifacthub.io/. Artifacthub is the community driven Chart repository.
+
+Wecan also search with CLI command
+	terminal --> helm search hub wordpress
+
+	# helm 				- common helm command
+	# search			- action
+	# hub				- where to search - artifacthub
+	# wordpress			- wha we search
+
+
+Artifacthub is the community driven Chart repository. Some other Chart repositories are Bitnami, Helm repository etc.
+
+To search for Charts in other repositories first we need to add the repository in our local setup
+	terminal --> helm repo add bitnami https://charts.bitnami.com/bitnami
+
+Then we can search in the repository
+	terminal --> helm search repo wordpress
+
+List exsiting repos
+	terminal --> helm repo list
+
+
+Once we find the Chart the next step is to Install the chart on our Cluster
+
+Install Charts
+==============
+
+Install specific Chart
+	terminal --> helm install [release-name] [chart-name]
+
+	# each installation of Chart is called a 'release' and each release has a release name.
+
+Fo example we can install the same application with different release name
+	terminal --> helm install release-1 bitnami/wordpress
+	terminal --> helm install release-2 bitnami/wordpress
+	terminal --> helm install release-3 bitnami/wordpress
+
+	# This commands will install 3 different instances of the same application
+
+
+
+Helm commands
+=============
+
+List installed packages
+	terminal --> helm list
+
+Uninstall packages
+	terminal --> helm uninstall my-release
+
+Download Chart only without install it
+	terminal --> helm pull --untar bitnami/wordpress	# --untar will extract the content after download
+
+List and find extracted the files under the extracted folder	
+	terminal --> ls wordpress
+
+	# result: Chart.lock Chart.yaml README.md charts ci templates values.chema.json values.yaml
+	# we can edit the values.yaml file to change required values
+
+Install the local Chart
+	terminal --> helm install release-4 ./wordpress
+
+
+
 ====================================
 Section 10 170. Labs - Helm Concepts
 ====================================
 
+
+1. Which command is used to search for a wordpress helm chart package from the Artifact Hub?
+--------------------------------------------------------------------------------------------
+
+- choose 'helm search hub wordpress' as answer
+
+
+
+2. Add a bitnami helm chart repository in the controlplane node.
+----------------------------------------------------------------
+name - bitnami
+chart repo name - https://charts.bitnami.com/bitnami
+
+Show hel help commands
+	terminal --> helm --help
+
+# result:
+-------------------------------------------
+Available Commands:
+  completion  generate autocompletion scripts for the specified shell
+  create      create a new chart with the given name
+  dependency  manage a chart's dependencies
+  env         helm client environment information
+  get         download extended information of a named release
+  help        Help about any command
+  history     fetch release history
+  install     install a chart
+  lint        examine a chart for possible issues
+  list        list releases
+  package     package a chart directory into a chart archive
+  plugin      install, list, or uninstall Helm plugins
+  pull        download a chart from a repository and (optionally) unpack it in local directory
+  push        push a chart to remote
+  registry    login to or logout from a registry
+  repo        add, list, remove, update, and index chart repositories		# we will use this command
+-------------------------------------------
+
+
+Add the Chart to our system
+	terminal --> helm repo add bitnami https://charts.bitnami.com/bitnami
+	
+	# result: "bitnami" has been added to your repositories
+
+- click 'Check' button
+
+
+
+
+3. Which command is used to search for the joomla package from the added repository?
+------------------------------------------------------------------------------------
+
+- choose 'helm search repo joomla' as answer
+
+
+
+
+4. What is the app version of joomla in the bitnami helm repository?
+--------------------------------------------------------------------
+
+Show details for the repo
+	terminal --> helm search repo joomla
+
+	# result:
+NAME            CHART VERSION   APP VERSION     DESCRIPTION                                       
+bitnami/joomla  20.0.4          5.1.2           DEPRECATED Joomla! is an award winning open sou...
+
+- choose '5.1.2' as answer
+
+
+
+
+5. Which chart version can you see for the joomla package in the bitnami helm repo?
+-----------------------------------------------------------------------------------
+
+Show details for the repo
+	terminal --> helm search repo joomla
+
+	# result:
+NAME            CHART VERSION   APP VERSION     DESCRIPTION                                       
+bitnami/joomla  20.0.4          5.1.2           DEPRECATED Joomla! is an award winning open sou...
+
+- choose '20.0.4' as answer
+
+
+
+
+6. How many helm repositories are added in the controlplane node?
+-----------------------------------------------------------------
+
+List repositories
+	terminal --> helm repo list
+
+	# result:
+	NAME            URL                                                 
+	bitnami         https://charts.bitnami.com/bitnami                  
+	puppet          https://puppetlabs.github.io/puppetserver-helm-chart
+	hashicorp       https://helm.releases.hashicorp.com    
+
+- choose '3' as answer
+
+
+
+
+7. Install drupal helm chart from the bitnami repository.
+---------------------------------------------------------
+
+Release name should be bravo.
+Chart name should be bitnami/drupal.
+Note: Ignore the state of the application now.
+
+
+Install the Chart
+	terminal --> helm install bravo bitnami/drupal
+
+Verify installation
+	terminal --> helm list
+
+# result:
+NAME    NAMESPACE       REVISION        UPDATED                                 STATUS          CHART           APP VERSION
+bravo   default         1               2025-03-21 09:39:12.473836237 +0000 UTC deployed        drupal-21.1.7   11.1.5  
+
+
+- click 'Check' button
+
+
+
+
+8. Which command is used to list packages installed using helm?
+--------------------------------------------------------------
+
+- choose 'helm list' as answer
+
+
+
+
+9. Uninstall the drupal helm package which we installed earlier.
+----------------------------------------------------------------
+
+List packages
+	terminal --> helm list
+
+# result:
+NAME    NAMESPACE       REVISION        UPDATED                                 STATUS          CHART           APP VERSION
+bravo   default         1               2025-03-21 09:39:12.473836237 +0000 UTC deployed        drupal-21.1.7 11.1.5   
+
+Try to uninstall drupal package
+	terminal --> helm uninstall bravo
+
+	# result: release "bravo" uninstalled
+
+
+
+10. Download the bitnami apache package under the /root directory.
+------------------------------------------------------------------
+Note: Do not install the package. Just download it.
+
+Download the package
+	terminal --> helm pull --untar  bitnami/apache
+
+- click 'Check' button
+
+
+
+
+11. Inspect the file values.yaml and make changes so that 2 replicas of the webserver are running and the http is exposed on nodeport 30080.
+-----------------------------------------------------------------------------------------------------------------
+Note: You can read the Bitnami documentation for more.
+https://github.com/bitnami/charts/tree/master/bitnami/apache/#installing-the-chart
+
+
+List files
+	terminal --> ls ./apache
+
+	# result: Chart.lock  charts  Chart.yaml  files  README.md  templates  values.schema.json  values.yaml
+
+Print values.yaml file
+	terminal --> cat ./apache/values.yaml
+
+Edit the values.yaml file
+	terminal --> vi ./apache/values.yaml
+
+# search for replica
+	- press '/' and type 'replica', enter
+	- press '/' and type 'nodePort', enter
+
+values.yaml
+------------------------------------------
+...
+## @param replicaCount Number of replicas of the Apache deployment
+##
+replicaCount: 2										# set to 2
+## @param revisionHistoryLimit The number of old history to retain to allow rollback
+...
+  ## @param service.nodePorts.https Node port for HTTPS
+  ##
+  nodePorts:
+    http: "30080"									# set 30080
+    https: ""
+  ## @param service.clusterIP Apache service Cluster IP
+...
+------------------------------------------
+save changes - escape, :wq!, enter
+
+- click 'Ok' button
+
+
+
+
+12. Install the apache from the downloaded helm package.
+--------------------------------------------------------
+Release name: mywebapp
+
+Note: Do make changes accordingly so that 2 replicas of the webserver are running and the http is exposed on nodeport 30080.
+
+Make sure that the pods are in the running state.
+
+
+Install the package
+	terminal --> helm install mywebapp ./apache
+
+Verify the installation
+	terminal --> helm list 
+
+# result:
+NAME            NAMESPACE       REVISION     UPDATED                                 STATUS          CHART           APP VERSION
+mywebapp        default         1            2025-03-21 09:58:56.128406269 +0000 UTC deployed apache-11.3.4   2.4.63  
+
+- click 'Check' button
+
+
+
+13. You can access the Apache default page by clicking on mywebapp link from the top of the terminal.
+-----------------------------------------------------------------------------------------------------
+
+click on 'mywebapp' tab obove the console and it should say 'It works!'.
+
+click 'Ok' button
 
 
 
