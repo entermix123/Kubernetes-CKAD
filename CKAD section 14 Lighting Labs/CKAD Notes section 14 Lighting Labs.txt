@@ -1,12 +1,12 @@
 CONTENT
 
-Section 13 174. Introduction Lighting Labs
-Section 13 176. Lighting Lab - 1
-Section 13 178. Lighting Lab - 2
+Section 14 174. Introduction Lighting Labs
+Section 14 176. Lighting Lab - 1
+Section 14 178. Lighting Lab - 2
 
 
 ==========================================
-Section 13 174. Introduction Lighting Labs
+Section 14 174. Introduction Lighting Labs
 ==========================================
 
 Welcome to the KodeKloud CKAD Lightning Labs!
@@ -35,7 +35,7 @@ Please note that the difficulty level may not be the same as in the actual exam
 
 
 ================================
-Section 13 176. Lighting Lab - 1
+Section 14 176. Lighting Lab - 1
 ================================
 
 1. NOTE: "Welcome to the KodeKloud CKAD Lightning Lab - Part 1!"
@@ -646,7 +646,7 @@ Check the result of the exam
 
 
 ================================
-Section 13 178. Lighting Lab - 2
+Section 14 178. Lighting Lab - 2
 ================================
 
 Welcome to the KodeKloud CKAD Lightning Lab - Part 2!

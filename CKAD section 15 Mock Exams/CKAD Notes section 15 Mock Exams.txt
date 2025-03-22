@@ -1,0 +1,1598 @@
+CONTENT
+
+Section 15 179. Mock Exam 1
+Section 15 181. Mock Exam 2
+Section 15 184. Register for Certification
+Section 15 185. Kubernetes Update and Project Videos - Your Essential Guide
+
+===========================
+Section 15 179. Mock Exam 1
+===========================
+
+Note: These tests are in beta/experimental phase as of now. Please report any issues/concerns through the slack channel or Q&A section.
+
+These exams were built to give you a real exam like feel in terms of your ability to read and interpret a given question, validate your own work, manage time to complete given tasks within the given time, and see where you went wrong.
+
+Having said that:
+
+Please note that this exam is not a replica of the actual exam
+
+Please note that the questions in these exams are not the same as in the actual exam
+
+Please note that the interface is not the same as in the actual exam
+
+Please note that the scoring system may not be the same as in the actual exam
+
+Please note that the difficulty level may not be the same as in the actual exam
+
+Mock Test Link - https://uklabs.kodekloud.com/topic/mock-exam-1-5/
+
+This is the first of its kind. More on the way!
+
+
+
+1. Deploy a pod named nginx-448839 using the nginx:alpine image.
+----------------------------------------------------------------
+Once done, click on the Next Question button in the top right corner of this panel. You may navigate back and forth freely between all questions. Once done with all questions, click on End Exam. Your work will be validated at the end and score shown. Good Luck!
+
+Requirements:
+-------------
+Name: nginx-448839
+Image: nginx:alpine
+
+
+Create the pod
+	terminal --> k run nginx-448839 --image=nginx:alpine
+
+	# result: pod/nginx-448839 created
+
+Verify the Pod creation 
+	terminal --> k get pods
+
+	# result:
+	NAME                              READY   STATUS    RESTARTS   AGE
+	httpd-frontend-86b5794b6d-nrm7w   1/1     Running   0          2m18s
+	httpd-frontend-86b5794b6d-ts9m4   1/1     Running   0          2m18s
+	httpd-frontend-86b5794b6d-v5vqb   1/1     Running   0          2m18s
+	nginx-448839                      1/1     Running   0          4m37s		# created
+	webapp-color                      1/1     Running   0          5m56s
+
+
+- click 'Next' button
+
+
+
+
+2. Create a namespace named apx-z993845
+---------------------------------------
+
+Requirements:
+-------------
+Namespace: apx-z993845
+
+Create the namespace
+	terminal --> k create ns apx-z993845
+
+	# result: namespace/apx-z993845 created
+
+Verify the namespace creation
+	terminal --> k get ns
+	
+	# result:
+	NAME              STATUS   AGE
+	apx-z993845       Active   2m35s		# created
+	default           Active   23m
+	e-commerce        Active   5m2s
+	kube-node-lease   Active   23m
+	kube-public       Active   23m
+	kube-system       Active   23m
+	marketing         Active   5m2s
+
+- click 'Next' button
+
+
+
+
+
+3. Create a new Deployment named httpd-frontend with 3 replicas using image httpd:2.4-alpine
+--------------------------------------------------------------------------------------------
+
+Requirements:
+-------------
+Name: httpd-frontend
+Replicas: 3
+Image: httpd:2.4-alpine
+
+
+Create the deployment
+	terminal --> k create deploy httpd-frontend --image=httpd:2.4-alpine --replicas=3
+
+	# result: deployment.apps/httpd-frontend created
+
+Verify the deployment creation 
+	terminal --> k get deploy
+
+	# result:
+	NAME             READY   UP-TO-DATE   AVAILABLE   AGE
+	httpd-frontend   3/3     3            3           31s
+
+- click 'Next' button
+
+
+
+
+
+4. Deploy a messaging pod using the redis:alpine image with the labels set to tier=msg.
+---------------------------------------------------------------------------------------
+
+Requirements:
+-------------
+Pod Name: messaging
+Image: redis:alpine
+Labels: tier=msg
+
+Create the pod
+	terminal --> k run messaging --image=redis:alpine -l tier=msg
+
+	# result: pod/messaging created
+
+Verify pod cration with the required label
+	terminal --> k get pods --show-labels
+
+# result:
+NAME                              READY   STATUS    RESTARTS   AGE     LABELS
+httpd-frontend-86b5794b6d-nrm7w   1/1     Running   0          4m56s   app=httpd-frontend,pod-template-hash=86b5794b6d
+httpd-frontend-86b5794b6d-ts9m4   1/1     Running   0          4m56s   app=httpd-frontend,pod-template-hash=86b5794b6d
+httpd-frontend-86b5794b6d-v5vqb   1/1     Running   0          4m56s   app=httpd-frontend,pod-template-hash=86b5794b6d
+messaging                         1/1     Running   0          34s     tier=msg			# created with right label
+nginx-448839                      1/1     Running   0          7m15s   run=nginx-448839
+webapp-color                      1/1     Running   0          8m34s   name=webapp-color
+
+- click 'Next' button
+
+
+
+5. A replicaset rs-d33393 is created. However the pods are not coming up. Identify and fix the issue.
+-----------------------------------------------------------------------------------------------------
+Once fixed, ensure the ReplicaSet has 4 Ready replicas.
+
+Replicas: 4
+
+List replicasets
+	terminal --> k get rs
+
+	# result:
+	NAME                        DESIRED   CURRENT   READY   AGE
+	httpd-frontend-86b5794b6d   3         3         3       7m10s
+	rs-d33393                   4         4         0       93s		# target replicaset
+
+List pods
+	terminal --> k get pods
+
+	# result:
+	NAME                              READY   STATUS             RESTARTS   AGE
+	httpd-frontend-86b5794b6d-nrm7w   1/1     Running            0          8m1s
+	httpd-frontend-86b5794b6d-ts9m4   1/1     Running            0          8m1s
+	httpd-frontend-86b5794b6d-v5vqb   1/1     Running            0          8m1s
+	messaging                         1/1     Running            0          3m39s
+	nginx-448839                      1/1     Running            0          10m
+	rs-d33393-6w8kk                   0/1     InvalidImageName   0          2m24s	# invalid image name
+	rs-d33393-k8tsk                   0/1     InvalidImageName   0          2m24s
+	rs-d33393-thbmf                   0/1     InvalidImageName   0          2m24s
+	rs-d33393-xpcgr                   0/1     InvalidImageName   0          2m24s	# invalid image name
+	webapp-color                      1/1     Running            0          11m
+
+Edit replicaset
+	terminal --> k edit rs rs-d33393
+
+
+
+rs-d33393
+-----------------------------------------------
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  creationTimestamp: "2025-03-22T12:29:45Z"
+  generation: 1
+  name: rs-d33393
+  namespace: default
+  resourceVersion: "2914"
+  uid: 73a6d29c-acde-4357-9611-a5c4023a59ed
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      name: busybox-pod
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        name: busybox-pod
+    spec:
+      containers:
+      - command:
+        - sh
+        - -c
+        - echo Hello Kubernetes! && sleep 3600
+        image: busybox					# fix the image to busybox
+        imagePullPolicy: IfNotPresent
+        name: busybox-container
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+status:
+  fullyLabeledReplicas: 4
+  observedGeneration: 1
+  replicas: 4
+-----------------------------------------------
+save changes - escape, :wq!, enter
+
+# result: replicaset.apps/rs-d33393 edited
+
+
+List pods
+	terminal --> k get pods
+	
+	# result:
+	NAME                              READY   STATUS             RESTARTS   AGE
+	httpd-frontend-86b5794b6d-nrm7w   1/1     Running            0          12m
+	httpd-frontend-86b5794b6d-ts9m4   1/1     Running            0          12m
+	httpd-frontend-86b5794b6d-v5vqb   1/1     Running            0          12m
+	messaging                         1/1     Running            0          8m29s
+	nginx-448839                      1/1     Running            0          15m
+	rs-d33393-6w8kk                   0/1     InvalidImageName   0          7m14s
+	rs-d33393-k8tsk                   0/1     InvalidImageName   0          7m14s
+	rs-d33393-thbmf                   0/1     InvalidImageName   0          7m14s
+	rs-d33393-xpcgr                   0/1     InvalidImageName   0          7m14s
+	webapp-color                      1/1     Running            0          16m
+
+
+Delete the old not working pods
+	terminal --> k delete pod rs-d33393-6w8kk rs-d33393-k8tsk rs-d33393-thbmf rs-d33393-xpcgr 
+
+Wait few minutes to ensure pods get recreated and see replicaset status
+	terminal --> k get rs
+
+	# result:
+	NAME                        DESIRED   CURRENT   READY   AGE
+	httpd-frontend-86b5794b6d   3         3         3       14m
+	rs-d33393                   4         4         4       8m32s	# all pods are working
+
+- click 'Next' button
+
+
+
+
+6. Create a service messaging-service to expose the redis deployment in the marketing namespace within the cluster on port 6379.
+--------------------------------------------------------------------------------------------------------------------------------
+Use imperative commands
+
+Requirements:
+-------------
+Service: messaging-service
+Port: 6379
+Use the right type of Service
+Use the right labels
+
+
+Check if marketing namespace exists
+	terminal --> k get ns
+
+	# result:
+	NAME              STATUS   AGE
+	apx-z993845       Active   16m
+	default           Active   37m
+	e-commerce        Active   19m
+	kube-node-lease   Active   37m
+	kube-public       Active   37m
+	kube-system       Active   37m
+	marketing         Active   19m		# exists
+
+
+Check if deployment redis exists in the marketing namespace 
+	terminal --> k get deploy -n marketing
+
+	# result:
+	NAME    READY   UP-TO-DATE   AVAILABLE   AGE
+	redis   1/1     1            1           20m		# exists
+
+Show expose command help
+	terminal --> k expose -h
+
+Expose the deployment
+	terminal --> k expose deploy redis --name messaging-service --port=6379 -n marketing
+
+	# result: service/messaging-service exposed
+
+Verify the service creation
+	terminal --> k get svc -n marketing
+
+	# result:
+	NAME                TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
+	messaging-service   ClusterIP   172.20.217.132   <none>        6379/TCP   46s	# created
+
+- click 'Next' button
+
+
+
+
+7. Update the environment variable on the pod webapp-color to use a green background.
+-------------------------------------------------------------------------------------
+
+Requirements:
+-------------
+Pod Name: webapp-color
+Label Name: webapp-color
+Env: APP_COLOR=green
+
+
+List pods
+	terminal --> k get pods
+
+	# result:
+	NAME                              READY   STATUS    RESTARTS   AGE
+	httpd-frontend-86b5794b6d-nrm7w   1/1     Running   0          23m
+	httpd-frontend-86b5794b6d-ts9m4   1/1     Running   0          23m
+	httpd-frontend-86b5794b6d-v5vqb   1/1     Running   0          23m
+	messaging                         1/1     Running   0          18m
+	nginx-448839                      1/1     Running   0          25m
+	rs-d33393-899dv                   1/1     Running   0          9m33s
+	rs-d33393-d8rnv                   1/1     Running   0          9m33s
+	rs-d33393-qb9gq                   1/1     Running   0          9m33s
+	rs-d33393-tr5v5                   1/1     Running   0          9m33s
+	webapp-color                      1/1     Running   0          26m		# target pod
+
+
+We have 2 options to edit the pod
+	Option 1: Edit the Pod and recreate it with the created temporary file
+	Option 2: Save the Pod definition template
+		- edit and change the background color
+		- delete the existing pod
+		- create new one
+
+Option 1
+--------
+
+Edit the pod
+	terminal --> k edit pod webapp-color
+
+webapp-color
+-------------------------------------
+...
+spec:
+  containers:
+  - env:
+    - name: APP_COLOR
+      value: green				# change to green
+    image: kodekloud/webapp-color
+    imagePullPolicy: Always
+    name: webapp-color
+    resources: {}
+...
+-------------------------------------
+save changes: escape, :wq!, enter
+quit the error screen: :q!, enter
+
+We will recieve error message:
+error: pods "webapp-color" is invalid
+A copy of your changes has been stored to "/tmp/kubectl-edit-742725350.yaml"
+error: Edit cancelled, no valid changes were saved.
+
+
+Recraete the pod with the temporary created file
+	terminal --> k replace --force -f /tmp/kubectl-edit-742725350.yaml
+
+	# result:
+	pod "webapp-color" deleted
+	pod/webapp-color replaced
+
+
+Option 2
+--------
+
+Save the Pod definition in webapp-color.yaml file
+	terminal --> k get pod webapp-color -o yaml > webapp-color.yaml
+
+Edit the Pod definition webapp-color.yaml file 
+	terminal --> vi webapp-color.yaml
+
+webapp-color.yaml
+-------------------------------------
+...
+spec:
+  containers:
+  - env:
+    - name: APP_COLOR
+      value: green				# change to green
+    image: kodekloud/webapp-color
+    imagePullPolicy: Always
+    name: webapp-color
+    resources: {}
+...
+-------------------------------------
+save changes: escape, :wq!, enter
+
+Recreate the Pod with the changed definition file
+	terminal --> k replace --force -f webapp-color.yaml
+
+	# result:
+	pod "webapp-color" deleted
+	pod/webapp-color replaced
+
+
+- click 'Next' button
+
+
+
+
+
+8. Create a new ConfigMap named cm-3392845. Use the spec given on the below.
+----------------------------------------------------------------------------
+
+Requirements:
+-------------
+ConfigName Name: cm-3392845
+Data: DB_NAME=SQL3322
+Data: DB_HOST=sql322.mycompany.com
+Data: DB_PORT=3306
+
+
+Create the configmap
+	terminal --> k create cm cm-3392845 --from-literal=DB_NAME=SQL3322 --from-literal=DB_HOST=sql322.mycompany.com --from-literal=DB_PORT=3306
+
+	# result: configmap/cm-3392845 created
+
+Verify the configmap creation
+	terminal --> k get cm 
+
+	# result:
+	NAME               DATA   AGE
+	cm-3392845         3      27s		# created
+	kube-root-ca.crt   1      59m
+
+Verifu the configmap content
+	terminal --> k describe cm cm-3392845
+
+# result:
+-----------------------------------
+Name:         cm-3392845
+Namespace:    default
+Labels:       <none>
+Annotations:  <none>
+
+Data
+====
+DB_HOST:
+----
+sql322.mycompany.com
+
+DB_NAME:
+----
+SQL3322
+
+DB_PORT:
+----
+3306
+
+
+BinaryData
+====
+
+Events:  <none>
+-----------------------------------
+
+- click 'Next' button
+
+
+
+
+
+
+9. Create a new Secret named db-secret-xxdf with the data given (on the below).
+-------------------------------------------------------------------------------
+
+Requirements:
+-------------
+Secret Name: db-secret-xxdf
+Secret 1: DB_Host=sql01
+Secret 2: DB_User=root
+Secret 3: DB_Password=password123
+
+
+Create the secret
+	terminal --> k create secret generic db-secret-xxdf --from-literal=DB_Host=sql01 --from-literal=DB_User=root --from-literal=DB_Password=password123
+
+	# result: secret/db-secret-xxdf created
+
+Verify the secret creation
+	terminal --> k get secret
+
+	# result:
+	NAME             TYPE     DATA   AGE
+	db-secret-xxdf   Opaque   3      22s
+
+- click 'Next' button
+
+
+
+
+10. Update pod app-sec-kff3345 to run as Root user and with the SYS_TIME capability.
+------------------------------------------------------------------------------------
+
+Requirements:
+-------------
+Pod Name: app-sec-kff3345
+Image Name: ubuntu
+SecurityContext: Capability SYS_TIME
+
+
+List pods
+	terminal --> k get pods
+
+	# result:
+	NAME                              READY   STATUS    RESTARTS   AGE
+	app-sec-kff3345                   1/1     Running   0          45s		# target pod
+	httpd-frontend-86b5794b6d-nrm7w   1/1     Running   0          42m
+	httpd-frontend-86b5794b6d-ts9m4   1/1     Running   0          42m
+	httpd-frontend-86b5794b6d-v5vqb   1/1     Running   0          42m
+	messaging                         1/1     Running   0          38m
+	nginx-448839                      1/1     Running   0          44m
+	rs-d33393-899dv                   1/1     Running   0          28m
+	rs-d33393-d8rnv                   1/1     Running   0          28m
+	rs-d33393-qb9gq                   1/1     Running   0          28m
+	rs-d33393-tr5v5                   1/1     Running   0          28m
+	webapp-color                      1/1     Running   0          15m
+
+
+Save the target pod configuration in app-sec.yaml file 
+	terminal --> k get pod app-sec-kff3345 -o yaml > app-sec.yaml
+
+Edit the pod configuration file
+	terminal --> vi app-sec.yaml
+
+app-sec.yaml
+--------------------------------------------------
+...
+spec:
+  containers:
+  - command:
+    - sleep
+    - "4800"
+    image: ubuntu
+    imagePullPolicy: Always
+    name: ubuntu
+    securityContext:					# added security capabilities from here
+      capabilities:
+        add: ["SYS_TIME"]				# to here
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-46g5s
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  nodeName: controlplane
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: 					
+    runAsUser: 0					# set user
+  serviceAccount: default
+...
+--------------------------------------------------
+save changes: escape, :wq!, enter
+
+Apply the changes
+	terminal --> k replace --force -f app-sec.yaml
+
+	# result:
+	pod "app-sec-kff3345" deleted
+	pod/app-sec-kff3345 replaced
+
+- click 'Next' button
+
+
+
+
+11. Export the logs of the e-com-1123 pod to the file /opt/outputs/e-com-1123.logs
+----------------------------------------------------------------------------------
+It is in a different namespace. Identify the namespace first.
+
+Requirements:
+-------------
+Task Completed
+
+
+List pods in all namespaces (we will need the pod's namespace)
+	terminal --> k get pods -A
+
+# result:
+NAMESPACE     NAME                                       READY   STATUS    RESTARTS   AGE
+default       app-sec-kff3345                            1/1     Running   0          58s
+default       httpd-frontend-86b5794b6d-9mvbk            1/1     Running   0          5m50s
+default       httpd-frontend-86b5794b6d-d8q8l            1/1     Running   0          5m50s
+default       httpd-frontend-86b5794b6d-ntsjh            1/1     Running   0          5m50s
+default       messaging                                  1/1     Running   0          5m40s
+default       nginx-448839                               1/1     Running   0          6m10s
+default       rs-d33393-gkf6d                            1/1     Running   0          4m27s
+default       rs-d33393-jmjj9                            1/1     Running   0          4m27s
+default       rs-d33393-lzsq5                            1/1     Running   0          4m27s
+default       rs-d33393-nzbrt                            1/1     Running   0          4m27s
+default       webapp-color                               1/1     Running   0          2m48s
+e-commerce    e-com-1123                                 1/1     Running   0          6m28s		# target pod
+kube-system   calico-kube-controllers-5745477d4d-hv5xn   1/1     Running   0          26m
+kube-system   canal-ngdz6                                2/2     Running   0          26m
+kube-system   coredns-7484cd47db-cqjf7                   1/1     Running   0          26m
+kube-system   coredns-7484cd47db-tc5xc                   1/1     Running   0          26m
+kube-system   etcd-controlplane                          1/1     Running   0          26m
+kube-system   kube-apiserver-controlplane                1/1     Running   0          26m
+kube-system   kube-controller-manager-controlplane       1/1     Running   0          26m
+kube-system   kube-proxy-7vdfg                           1/1     Running   0          26m
+kube-system   kube-scheduler-controlplane                1/1     Running   0          26m
+marketing     redis-556f566f7f-mljd5                     1/1     Running   0          6m28s
+
+
+Export pod logs (specify the namespace) into the required file
+	terminal --> k logs e-com-1123 -n e-commerce > /opt/outputs/e-com-1123.logs
+
+Verify the logs export
+	terminal --> cat /opt/outputs/e-com-1123.logs
+
+- click 'Next' button
+
+
+
+
+12. Create a Persistent Volume with the given specification.
+------------------------------------------------------------
+
+Reqyirements:
+-------------
+Volume Name: pv-analytics
+Storage: 100Mi
+Access modes: ReadWriteMany
+Host Path: /pv/data-analytics
+
+Find Persistent Volume template from Kubernetes documentation
+	- https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes
+
+Create a file for the template
+	terminal --> pv.yaml
+
+pv.yaml
+------------------------------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-analytics
+spec:
+  capacity:
+    storage: 100Mi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: /pv/data-analytics
+------------------------------------
+save changes: escape, :wq!, enter
+
+
+Craete the persistent volume
+	terminal --> k apply -f pv.yaml
+
+	# result: persistentvolume/pv-analytics created
+
+
+Verify the PV creation
+	terminal --> k get pv
+
+# result:
+NAME           CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS   VOLUMEATTRIBUTESCLASS   REASON   AGE
+pv-analytics   100Mi      RWX            Retain           Available                          <unset>                          33s
+
+- click 'Next' button
+
+
+
+
+13. Create a redis deployment using the image redis:alpine with 1 replica and label app=redis. Expose it via a ClusterIP service called redis on port 6379. Create a new Ingress Type NetworkPolicy called redis-access which allows only the pods with label access=redis to access the deployment.
+--------------------------------------------------------------------------------------------------------------------------------
+
+Requirements:
+-------------
+Image: redis:alpine
+Deployment created correctly?
+Service created correctly?
+Network Policy allows the correct pods?
+Network Policy applied on the correct pods?
+
+Create deployment redis
+	terminal --> k create deploy redis --image redis:alpine --replicas=1
+
+	# result: deployment.apps/redis created
+
+Expose the deployment with service redis
+	terminal --> k expose deploy redis --name redis --port=6379 --target-port=6379
+
+	# result: service/redis exposed
+
+
+Find network policy template in Kubernetes docuemntation
+	- https://kubernetes.io/docs/concepts/services-networking/network-policies/#networkpolicy-resource
+
+Create network policy template file
+	terminal --> vi networkpolicy.yaml
+
+ingress.yaml
+-----------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-access
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          access: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+-----------------------------------------
+save changes: escape, :wq!, enter
+
+Create the ingress resource with the definition file
+	terminal --> k apply -f networkpolicy.yaml
+
+	# result: networkpolicy.networking.k8s.io/redis-access created
+
+
+Verify the newtork polocy creation
+	terminal --> k get networkpolicy
+	
+	# result:
+	NAME           POD-SELECTOR   AGE
+	redis-access   app=redis      45s
+
+- click 'Next' button
+
+
+
+
+14. Create a Pod called sega with two containers:
+-------------------------------------------------
+Container 1: Name tails with image busybox and command: sleep 3600.
+Container 2: Name sonic with image nginx and Environment variable: NGINX_PORT with the value 8080.
+
+Requirements:
+-------------
+Container Sonic has the correct ENV name
+Container Sonic has the correct ENV value
+Container tails created correctly?
+
+
+Create Pod template definition in sega.yaml file
+	terminal --> k run sega --image busybox --dry-run=client -o yaml > sega.yaml
+
+Edit the definition file
+	terminal --> vi sega.yaml
+
+sega.yaml
+---------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: sega
+  name: sega
+spec:
+  containers:
+  - image: busybox
+    name: tails
+    command:
+      - sleep
+      - "3600"
+  - image: nginx
+    name: sonic
+    env:
+      - name: NGINX_PORT
+        value: "8080"
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+---------------------------------
+save changes: escape, :wq!, enter
+
+
+Create the pod
+	terminal --> k apply -f sega.yaml
+
+	# result: pod/sega created
+
+Verify the Pod creation
+	terminal --> k get pods
+
+	# result:
+	NAME                              READY   STATUS              RESTARTS   AGE
+	app-sec-kff3345                   1/1     Running             0          32m
+	httpd-frontend-86b5794b6d-9mvbk   1/1     Running             0          37m
+	httpd-frontend-86b5794b6d-d8q8l   1/1     Running             0          37m
+	httpd-frontend-86b5794b6d-ntsjh   1/1     Running             0          37m
+	messaging                         1/1     Running             0          37m
+	nginx-448839                      1/1     Running             0          37m
+	redis-59bc74f5b5-xnjk5            1/1     Running             0          18m
+	rs-d33393-gkf6d                   1/1     Running             0          35m
+	rs-d33393-jmjj9                   1/1     Running             0          35m
+	rs-d33393-lzsq5                   1/1     Running             0          35m
+	rs-d33393-nzbrt                   1/1     Running             0          35m
+	sega                              0/2     ContainerCreating   0          3s
+	webapp-color                      1/1     Running             0          34m
+
+
+Check the exam results
+----------------------
+
+
+
+===========================
+Section 15 181. Mock Exam 2
+===========================
+
+1. Create a deployment called my-webapp with image: nginx, label tier:frontend and 2 replicas. Expose the deployment as a NodePort service with name front-end-service , port: 80 and NodePort: 30083
+----------------------------------------------------------------------------------------------------------------------------------
+
+Requirements:
+-------------
+Deployment my-webapp created?
+image: nginx
+Replicas = 2 ?
+service front-end-service created?
+service Type created correctly?
+Correct node Port used?
+
+
+Create deployment definition in my-webapp.yaml file
+	terminal --> k create deploy my-webapp --image nginx --replicas=2 --dry-run=client -o yaml > my-webapp.yaml
+
+Create the deployment
+	terminal --> k apply -f my-webapp.yaml
+
+	# result: deployment.apps/my-webapp created
+
+Verify deployment creation 
+	terminal --> k get deploy
+
+	# result:
+	NAME        READY   UP-TO-DATE   AVAILABLE   AGE
+	my-webapp   2/2     2            2           32s
+
+Create service definition in front-end-service.yml file for the deployment
+	terminal --> k expose deploy my-webapp --name front-end-service --type NodePort --port 80 --dry-run=client -o yaml > front-end-service.yml
+
+Edit the service definition file adn add the NodePort
+	terminal --> vi front-end-service.yml
+
+front-end-service.yml
+--------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: my-webapp
+  name: front-end-service
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+    nodePort: 30083		# added nodePort 30083
+  selector:
+    app: my-webapp
+  type: NodePort
+status:
+  loadBalancer: {}
+--------------------------------------------
+save changes: escape, :wq!, enter
+
+
+Create the service
+	etrminal --> k apply -f front-end-service.yml
+
+	# result: service/front-end-service created
+
+Verify the service creation
+	terminal --> k get svc
+
+	# result:
+	NAME                TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
+	front-end-service   NodePort    172.20.50.232   <none>        80:30083/TCP   26s	# created
+	kubernetes          ClusterIP   172.20.0.1      <none>        443/TCP        15m
+
+- click 'Next' button
+
+
+
+2. Add a taint to the node node01 of the cluster. Use the specification below:
+------------------------------------------------------------------------------
+key: app_type, value: alpha and effect: NoSchedule
+
+Create a pod called alpha, image: redis with toleration to node01.
+
+
+Requirements:
+-------------
+node01 with the correct taint?
+Pod alpha has the correct toleration?
+
+
+List nodes
+	terminal --> k get nodes
+
+	# result:
+	NAME           STATUS   ROLES           AGE   VERSION
+	controlplane   Ready    control-plane   17m   v1.32.0
+	node01         Ready    <none>          16m   v1.32.0	# target node
+
+
+Add the taint to the cluster
+	terminal --> k taint node node01 app_type=alpha:NoSchedule
+
+	# result: node/node01 tainted
+
+Verify the node taint
+	terminal --> k describe node node01 | grep Taint
+
+	# result: Taints:             app_type=alpha:NoSchedule
+
+
+
+Create Pod defintion in alpha.yaml file
+	terminal --> k run alpha --image redis --dry-run=client -o yaml > alpha.yaml
+
+Edit the Pod definition alpha.yaml file and add requested toelration
+	terminal --> vi alpha.yaml
+
+alpha.yaml
+---------------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: alpha
+  name: alpha
+spec:
+  tolerations:			# added toleration section from here
+    - effect: NoSchedule
+      key: app_type
+      value: alpha		# to here
+  containers:
+  - image: redis
+    name: alpha
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+---------------------------------------
+save changes: escape, :wq!, enter
+
+
+Create the Pod
+	etrminal --> k apply -f alpha.yaml
+
+	# result: pod/alpha created
+
+Verify Pod creation	
+	terminal --> k get pod -o wide
+
+# result 
+NAME                         READY   STATUS    RESTARTS   AGE     IP           NODE           NOMINATED NODE   READINESS GATES
+alpha                        1/1     Running   0          2m32s   172.17.1.7   node01         <none>           <none>	# created
+my-webapp-69d84dfbd7-fr8ss   1/1     Running   0          15m     172.17.1.6   node01         <none>           <none>
+my-webapp-69d84dfbd7-x8qjc   1/1     Running   0          15m     172.17.0.6   controlplane   <none>           <none>
+
+Verify Pod and Tolerationse	
+	terminal --> k describe pod alpha | grep Tolerations
+
+	# result: Tolerations:                 app_type=alpha:NoSchedule
+
+- click 'Next' button
+
+
+
+3. Apply a label app_type=beta to node controlplane. Create a new deployment called beta-apps with image: nginx and replicas: 3. Set Node Affinity to the deployment to place the PODs on controlplane only.
+--------------------------------------------------------------------------------------------------------------------------------
+
+NodeAffinity: requiredDuringSchedulingIgnoredDuringExecution
+
+Requirements:
+-------------
+controlplane has the correct labels?
+Deployment beta-apps: NodeAffinity set to requiredDuringSchedulingIgnoredDuringExecution ?
+Deployment beta-apps has correct Key for NodeAffinity?
+Deployment beta-apps has correct Value for NodeAffinity?
+Deployment beta-apps has pods running only on controlplane?
+Deployment beta-apps has 3 pods running?
+
+
+List nodes
+	terminal --> k get nodes
+
+	# result:
+	NAME           STATUS   ROLES           AGE   VERSION
+	controlplane   Ready    control-plane   27m   v1.32.0
+	node01         Ready    <none>          26m   v1.32.0
+
+
+Add label to node controlplane
+	terminal --> k label node controlplane app_type=beta
+
+	# result: node/controlplane labeled
+
+Verify the controlplane node labeling
+	terminal --> k describe node controlplane | grep Labels
+
+	# result: Labels:             app_type=beta
+
+
+Create Deployment definition beta-apps.yaml file 
+	terminal --> k create deploy beta-apps --image nginx --replicas=3 --dry-run=client -o yaml > beta-apps.yaml
+
+Find Affinity syntax in Kubernetes documentation
+	- https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity
+
+Edit the deployment definition file and add the affinity
+	terminal --> vi beta-apps.yaml
+
+beta-apps.yaml
+-------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: beta-apps
+  name: beta-apps
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: beta-apps
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: beta-apps
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: app_type
+                operator: In
+                values: ["beta"]
+      containers:
+      - image: nginx
+        name: nginx
+        resources: {}
+status: {}
+-------------------------------------
+save changes: escape, :wq!, enter
+
+Create the deployment with the definition file
+	terminal--> k apply -f beta-apps.yaml
+	
+	# result: deployment.apps/beta-apps created
+
+Verify the deployment creation
+	terminal ---> k get deploy
+
+	# result:
+	NAME        READY   UP-TO-DATE   AVAILABLE   AGE
+	beta-apps   3/3     3            3           22s
+	my-webapp   2/2     2            2           27m
+
+Verify that the Pods are deployed on controlplane node
+	terminal --> k get pods -o wide
+
+# result:
+NAME                         READY   STATUS    RESTARTS   AGE   IP           NODE           NOMINATED NODE   READINESS GATES
+alpha                        1/1     Running   0          15m   172.17.1.7   node01         <none>           <none>
+beta-apps-76cf9b799-2sv84    1/1     Running   0          92s   172.17.0.7   controlplane   <none>           <none>	# set
+beta-apps-76cf9b799-mgd9v    1/1     Running   0          92s   172.17.0.8   controlplane   <none>           <none>	# set
+beta-apps-76cf9b799-mtk4p    1/1     Running   0          92s   172.17.0.9   controlplane   <none>           <none>	# set
+my-webapp-69d84dfbd7-fr8ss   1/1     Running   0          28m   172.17.1.6   node01         <none>           <none>
+my-webapp-69d84dfbd7-x8qjc   1/1     Running   0          28m   172.17.0.6   controlplane   <none>           <none>
+
+- click 'Next' button
+
+
+
+
+4. Create a new Ingress Resource for the service my-video-service to be made available at the URL: http://ckad-mock-exam-solution.com:30093/video.
+-------------------------------------------------------------------------------------------------------------------------
+To create an ingress resource, the following details are: -
+annotation: nginx.ingress.kubernetes.io/rewrite-target: /
+host: ckad-mock-exam-solution.com
+path: /video
+
+Once set up, the curl test of the URL from the nodes should be successful: HTTP 200
+
+Requirements:
+-------------
+http://ckad-mock-exam-solution.com:30093/video accessible?
+
+List services
+	terminal --> k get svc
+
+	# result:
+	NAME                TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+	front-end-service   NodePort    172.20.50.232    <none>        80:30083/TCP   25m
+	kubernetes          ClusterIP   172.20.0.1       <none>        443/TCP        40m
+	my-video-service    ClusterIP   172.20.109.158   <none>        8080/TCP       68s
+
+Find the ingress resource template in Kubernetes documentation
+	- https://kubernetes.io/docs/concepts/services-networking/ingress/#the-ingress-resource
+
+Create ingress resource difinition ingress.yaml file
+	terminal --> kubectl create ingress ingress --rule="ckad-mock-exam-solution.com/video*=my-video-service:8080" --dry-run=client -oyaml > ingress.yaml
+
+	# k create ingress ingress						- create ingress resource named ingress
+	# --rule="ckad-mock-exam-solution.com/video*=my-video-service:8080"
+		- ckad-mock-exam-solution.com					- main url
+		- /video							- url path
+		- *=my-video-service						- route traffic to my-video-service service
+		- :8080								- service port 8080
+	# --dry-run=client -o yaml > ingress.yaml				- save the configuration in ingress.yaml file
+
+
+Edit ingress resource definition file and add the annotation
+	terminal --> vi ingress.yaml
+
+ingress.yaml
+---------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  name: ingress
+spec:
+  rules:
+  - host: ckad-mock-exam-solution.com
+    http:
+      paths:
+      - backend:
+          service:
+            name: my-video-service
+            port:
+              number: 8080
+        path: /video
+        pathType: Prefix
+---------------------------------------------
+
+Create ingress resource with the definition ingress.yaml file
+	terminal --> k apply -f ingress.yaml
+
+	# result: ingress.networking.k8s.io/ingress created
+
+Verify ingress resource creation
+	terminal --> k get ingress
+
+	# result:
+	NAME      CLASS    HOSTS                         ADDRESS         PORTS   AGE
+	ingress   <none>   ckad-mock-exam-solution.com   172.20.246.47   80      39s
+
+- click 'Next' button
+
+
+
+
+5. We have deployed a new pod called pod-with-rprobe. This Pod has an initial delay before it is Ready. Update the newly created pod pod-with-rprobe with a readinessProbe using the given spec
+--------------------------------------------------------------------------------------------------------------------------------
+httpGet path: /ready
+httpGet port: 8080
+
+Requirements:
+-------------
+readinessProbe with the correct httpGet path?
+readinessProbe with the correct httpGet port?
+
+List pods
+	terminal --> k get pods
+
+	# result:
+	NAME                            READY   STATUS    RESTARTS   AGE
+	alpha                           1/1     Running   0          29m
+	beta-apps-76cf9b799-2sv84       1/1     Running   0          15m
+	beta-apps-76cf9b799-mgd9v       1/1     Running   0          15m
+	beta-apps-76cf9b799-mtk4p       1/1     Running   0          15m
+	my-webapp-69d84dfbd7-fr8ss      1/1     Running   0          42m
+	my-webapp-69d84dfbd7-x8qjc      1/1     Running   0          42m
+	pod-with-rprobe                 1/1     Running   0          52s	# target pod
+	webapp-video-7d6646445c-7xltc   1/1     Running   0          13m
+
+
+Save the pod configuration in definition pod.yaml file
+	terminal --> k get pod pod-with-rprobe -o yaml > pod.yaml
+
+See the readiness probe syntax in the Kubernetes documentation
+- https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-readiness-probes
+
+Edit the Pod definition pod.yaml file and add readiness probe
+	terminal --> vi pod.yaml
+
+pod.yaml
+----------------------------------
+...
+spec:
+  containers:
+  - env:
+    - name: APP_START_DELAY
+      value: "180"
+    image: kodekloud/webapp-delayed-start
+    imagePullPolicy: Always
+    name: pod-with-rprobe
+    readinessProbe:		# added readiness probe section from here
+      httpGet:
+        path: /ready
+        port: 8080		# to here
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+    resources: {}
+...
+----------------------------------
+save changes: escape, :wq!, enter
+
+Recreate the pod with the file
+	terminal --> k replace --force -f pod.yaml
+
+	# result:
+	pod "pod-with-rprobe" deleted
+	pod/pod-with-rprobe replaced
+
+- click 'Next' button
+
+
+
+
+
+6. Create a new pod called nginx1401 in the default namespace with the image nginx. Add a livenessProbe to the container to restart it if the command ls /var/www/html/probe fails. This check should start after a delay of 10 seconds and run every 60 seconds.
+-----------------------------------------------------------------------------------------------------------------------------
+You may delete and recreate the object. Ignore the warnings from the probe.
+
+Requirements:
+-------------
+Pod created correctly with the livenessProbe?
+
+Check the iveness probe syntax in the Lubernetes docuemtntation
+- https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-a-liveness-http-request
+
+Create pod definition nginx1401.yaml file 
+	terminal --> k run nginx1401 --image nginx --dry-run=client -n default -o yaml > nginx1401.yaml
+
+Edit the pod definition nginx1401.yaml file
+	terminal --> vi nginx1401.yaml
+
+nginx1401.yaml
+--------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: nginx1401
+  name: nginx1401
+  namespace: default
+spec:
+  containers:
+  - image: nginx
+    name: nginx1401
+    livenessProbe:
+      exec:
+        command: ["ls /var/www/html/probe"]
+      initialDelaySeconds: 10
+      periodSeconds: 60
+--------------------------------
+save changes: escape, :wq!, enter
+
+Create the pod with the file
+	terminal --> k apply -f nginx1401.yaml
+
+	# result: pod/nginx1401 created
+
+- click 'Next' button
+
+
+
+
+7. Create a job called whalesay with image busybox and command echo "cowsay I am going to ace CKAD!".
+-----------------------------------------------------------------------------------------------------
+completions: 10
+backoffLimit: 6
+restartPolicy: Never
+
+This simple job runs the popular cowsay game that was modifed by docker…
+
+Requirements:
+-------------
+Job "whalesay" uses correct image?
+Job "whalesay" configured with completions = 10?
+Job "whalesay" with backoffLimit = 6
+Job run's the command "cowsay I am going to ace CKAD!"?
+Job "whalesay" completed successfully?
+
+See Job definition syntax in the Kubernetes docuemtntation
+	- https://kubernetes.io/docs/concepts/workloads/controllers/job/#running-an-example-job
+
+Create job definition job.yaml file
+	terminal --> k create job whalesay --image=busybox --dry-run=client -o yaml > job.yaml
+
+Edit the job defintion job.yaml file and add the command
+	terminal --> vi job.yaml
+
+job.yaml
+--------------------------------
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: whalesay
+spec:
+  completions: 10
+  backoffLimit: 6
+  template:
+    metadata:
+      creationTimestamp: null
+    spec:
+      containers:
+      - name: busybox-cowsay
+        image: busybox
+        command:
+        - sh
+        - -c
+        - "echo 'cowsay I am going to ace CKAD!'"
+      restartPolicy: Never
+--------------------------------
+save changes: escape, :wq!, enter
+
+Create the job with the definition job.yaml file
+	terminal --> k apply -f job.yaml
+
+	# result: job.batch/whalesay created
+
+Verify the job creation
+	etrminal --> k get jobs
+
+	# result:
+	NAME       STATUS    COMPLETIONS   DURATION   AGE
+	whalesay   Running   0/10          32s        32s
+
+Wait until all jobs are successfuly completed
+
+- click 'Next' button
+
+
+
+
+8. Create a pod called multi-pod with two containers.
+-----------------------------------------------------
+Container 1:
+name: jupiter, image: nginx
+Container 2:
+name: europa, image: busybox
+command: sleep 4800
+Environment Variables:
+
+Container 1:
+type: planet
+
+Container 2:
+type: moon
+
+
+Requirements:
+-------------
+Pod Name: multi-pod
+Container 1: jupiter
+Container 2: europa
+Container europa commands set correctly?
+Container 1 Environment Value Set
+Container 2 Environment Value Set
+
+
+Create Pod definition multi-pod.yaml file
+	etrminal --> k run multi-pod --image=nginx --dry-run=client -o yaml > multi-pod.yaml
+
+Edit the definition file and add containers
+	terminal --> vi multi-pod.yaml
+
+multi-pod.yaml
+-----------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: multi-pod
+  name: multi-pod
+spec:
+  containers:
+  - image: nginx
+    name: jupiter
+    env:
+      - name: type
+        value: planet
+    resources: {}
+  - image: busybox
+    name: europa
+    command: ["/bin/sh", "-c", "sleep 4800"]
+    env:
+      - name: type
+        value: moon
+-----------------------------------
+save changes: escape, :wq!, enter
+
+Create the pod with the definition file
+	terminal --> k apply -f  multi-pod.yaml 
+
+	# result: pod/multi-pod created
+
+Verify the pod creation
+	terminal --> k get pods
+
+	# result:
+	NAME                            READY   STATUS    RESTARTS   AGE
+	alpha                           1/1     Running   0          31m
+	beta-apps-76cf9b799-8mws8       1/1     Running   0          31m
+	beta-apps-76cf9b799-8r8cm       1/1     Running   0          31m
+	beta-apps-76cf9b799-rwnlh       1/1     Running   0          31m
+	multi-pod                       2/2     Running   0          32s	# created
+
+- click 'Next' button
+
+
+
+
+9. Create a PersistentVolume called custom-volume with size: 50MiB reclaim policy:retain, Access Modes: ReadWriteMany and hostPath: /opt/data
+-------------------------------------------------------------------------------------------------------------------------
+
+Requirements:
+-------------
+PV custom-volume created?
+custom-volume uses the correct access mode?
+PV custom-volume has the correct storage capacity?
+PV custom-volume has the correct host path?
+
+See the persistent volume sytax in the Kubernetes docuemntation
+	- https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volume-using-a-raw-block-volume
+
+Create persistent volume definition file
+	terminal --> vi pv.yaml
+
+pv.yaml
+------------------------------------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: custom-volume
+spec:
+  capacity:
+    storage: 50Mi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /opt/data
+------------------------------------------
+save changes: escape, :wq!, enter
+
+Create the PV with the definition file
+	terminal --> k apply -f pv.yaml
+
+	# result: persistentvolume/custom-volume created
+
+Verify the PV creation
+	terminal --> k get pv
+
+# result:
+NAME            CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS   VOLUMEATTRIBUTESCLASS   REASON   AGE
+custom-volume   50Mi       RWX            Retain           Available                          <unset>                          21s
+
+
+
+Check exam results!
+-------------------
+
+
+
+==========================================
+Section 15 184. Register for Certification
+==========================================
+
+Congratulations! You are now fully ready to crack the CKAD Certification.
+
+Head over to this link to enroll in the Certification Exam.
+Remember to keep the code - 20KODE - handy to get a 20% discount while registering for the CKAD exam with Linux Foundation.
+
+
+
+Certified Kubernetes Application Developer: https://www.cncf.io/certification/ckad/
+
+Candidate Handbook: https://www.cncf.io/certification/candidate-handbook
+
+Exam Tips: https://docs.linuxfoundation.org/tc-docs/certification/tips-cka-and-ckad
+
+
+
+Below are some of the questions students usually ask.
+
+
+
+Q. How much time does it take to get results after the exam?
+
+A. The results will be emailed within 48 hours.
+
+
+
+Q. Are this course and mock exams sufficient for the exam?
+
+A. Yes! The course covers all the topics required for the exam. If you practice the practice tests and mock exams enough times and make peace with the Kubernetes documentation pages, you should be good.
+
+
+
+Q. Is auto-completion available in the exam environment?
+
+A. Yes.
+
+
+
+Q. How do I switch between clusters/environments in the exam environment?
+
+A. The command to switch to the right cluster/context will be given at the top of each question. Make sure you run that always. Even if you think you are on the right cluster/context!
+
+
+===========================================================================
+Section 15 185. Kubernetes Update and Project Videos - Your Essential Guide
+===========================================================================
+
+Uncover additional insights through the videos listed below:
+
+Kubernetes Update Videos
+1. Kubernetes v1.27 Update
+Kubernetes Update 1.27: Chill Vibes Edition - Exploring the Latest Enhancements
+
+2. Kubernetes v1.28 Update
+Kubernetes Update 1.28: Planternetes Edition - Exploring the Latest Enhancements
+
+3. Kubernetes v1.29 Update
+Exploring Kubernetes 1.29 Updates - Mandala Universe
+
+
+
+Kubernetes Project Videos
+1. Special Interest Groups (SIGs) in Kubernetes
+Kubernetes SIGs: What They Are and How They Work
+
+2. Kubernetes Enhancement Proposals (KEPs) Unveiled
+What are Kubernetes Enhancement Proposals (KEPs)?
+

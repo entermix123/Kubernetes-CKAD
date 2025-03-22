@@ -1,11 +1,11 @@
 CONTENT
 
-Section 12 172. Time Management
+Section 13 172. Time Management
 Section 13 173. Additional Tips
 
 
 ===============================
-Section 12 172. Time Management
+Section 13 172. Time Management
 ===============================
 
 CKA - 3 hours / 24 questions
@@ -45,7 +45,7 @@ sa - Service Accounts
 
 
 ===============================
-Section 12 173. Additional Tips
+Section 13 173. Additional Tips
 ===============================
 
 Video for CKAD preparation - https://www.youtube.com/watch?v=rnemKrveZks&ab_channel=MuralidaranShanmugham
