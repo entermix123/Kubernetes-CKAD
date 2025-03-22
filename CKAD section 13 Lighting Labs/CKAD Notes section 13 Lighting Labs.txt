@@ -9,24 +9,1042 @@ Section 13 178. Lighting Lab - 2
 Section 13 174. Introduction Lighting Labs
 ==========================================
 
+Welcome to the KodeKloud CKAD Lightning Labs!
+
+This section has been created to give you hands-on practice in solving relatively complex questions in a short period of time.
+
+This environment is valid for 60 minutes, challenge yourself and try to complete all 5-6 questions within 30 minutes.
+
+You can toggle between the questions but make sure that you click on END EXAM before the timer runs out. To pass, you need to secure 80%.
+
+Don't worry if you can't beat the time the first time. You will still have 30 more minutes to finish and evaluate your answers. However, try to beat the time before your actual exam.
+
+Good Luck!!!
+
+Disclaimer:
+
+Please note that this exam is not a replica of the actual exam
+
+Please note that the questions in these exams are not the same as in the actual exam
+
+Please note that the interface is not the same as in the actual exam
+
+Please note that the scoring system may not be the same as in the actual exam
+
+Please note that the difficulty level may not be the same as in the actual exam
+
+
 ================================
 Section 13 176. Lighting Lab - 1
 ================================
+
+1. NOTE: "Welcome to the KodeKloud CKAD Lightning Lab - Part 1!"
+----------------------------------------------------------------
+"You can toggle between the questions but make sure that that you click on END EXAM before the the timer runs out.
+While this test environment is valid for 60 minutes, challenge yourself and try to complete all 5 questions within 30 minutes! To pass, correctly complete at least 4 out of 5 questions.Good Luck!!!"
+
+
+Create a Persistent Volume called log-volume. It should make use of a storage class name manual. It should use RWX as the access mode and have a size of 1Gi. The volume should use the hostPath /opt/volume/nginx
+
+Next, create a PVC called log-claim requesting a minimum of 200Mi of storage. This PVC should bind to log-volume.
+
+Mount this in a pod called logger at the location /var/www/nginx. This pod should use the image nginx:alpine.
+
+Requirements:
+-------------
+log-volume created with correct parameters?
+
+
+Step 1: Create a PV
+===================
+
+Find Persisten Volume template in Kubernetes documentation
+	- https://kubernetes.io/docs/concepts/storage/persistent-volumes/#reserving-a-persistentvolume
+
+Create PV definition file
+	terminal --> vi log-volume.yaml
+
+log-volume.yaml
+-----------------------------------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: log-volume
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: /opt/volume/nginx
+-----------------------------------------
+save changes - escape, :wq!, enter
+
+
+Create the PV
+	terminal --> k apply -f log-volume.yaml
+
+	# result: persistentvolume/log-volume created
+
+Verify the PV creation
+	terminal --> k get pv
+
+# result:
+NAME         CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS   VOLUMEATTRIBUTESCLASS   REASON   AGE
+log-volume   1Gi        RWX            Retain           Available           manual         <unset>                          29s
+
+
+
+Step 2: Create PVC
+==================
+
+Find Persisten Volume Claim template in Kubernetes documentation
+	- https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims
+
+Create PVC definition file
+	terminal --> vi log-calim.yaml
+
+log-calim.yaml
+-----------------------------------------
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: log-claim
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 200Mi
+  storageClassName: manual
+-----------------------------------------
+save changes - escape, :wq!, enter
+
+Creaate the PVC
+	terminal --> k apply -f log-calim.yaml
+
+	# result: persistentvolumeclaim/log-claim created
+
+Verify PVC creation
+	terminal --> k get pvc
+
+# result:
+NAME        STATUS   VOLUME       CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+log-claim   Bound    log-volume   1Gi        RWX            manual         <unset>                 29s
+
+
+
+Step 3: Create logger Pod and mount the PV
+==========================================
+
+Create Pod definition file
+	terminal --> k run logger --image=nginx:alpine --dry-run=client -o yaml > logger.yaml
+
+Edit the Pod definition file
+	terminal --> vi logger.yaml
+
+logger.yaml
+------------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: logger
+  name: logger
+spec:
+  volumes:				# added volume section from here
+    - name: log
+      persistentVolumeClaim:
+        claimName: log-claim		# to here
+  containers:
+  - image: nginx:alpine
+    name: logger
+    resources: {}
+    volumeMounts:			# added mout section from here
+      - name: log
+        mountPath: /var/www/nginx	# to here
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+------------------------------------
+save changes - escape, :wq!, enter
+
+Creaate the Pod logger
+	terminal --> k apply -f logger.yaml
+
+	# result: pod/logger created
+
+Verify Pod creation
+	terminal --> k get pods
+
+	# result:
+	NAME           READY   STATUS    RESTARTS   AGE
+	logger         1/1     Running   0          24s
+	webapp-color   1/1     Running   0          18m
+
+
+- click 'Next' button
+
+
+
+
+2. We have deployed a new pod called secure-pod and a service called secure-service. Incoming or Outgoing connections to this pod are not working.
+Troubleshoot why this is happening.
+---------------------------------------------------------------------------------------------------------------------------------
+Make sure that incoming connection from the pod webapp-color are successful.
+
+Important: Don't delete any current objects deployed.
+
+Requirements:
+-------------
+Important: Don't Alter Existing Objects!
+Connectivity working?
+
+
+List Pods
+	terminal --> k get pods
+
+	# result:
+	NAME           READY   STATUS    RESTARTS   AGE
+	logger         1/1     Running   0          2m2s
+	secure-pod     1/1     Running   0          72s		# this is target pod
+	webapp-color   1/1     Running   0          19m		# this is target pod
+
+List services
+	terminal --> k get svc
+
+	# result:
+	NAME             TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+	kubernetes       ClusterIP   172.20.0.1       <none>        443/TCP   39m
+	secure-service   ClusterIP   172.20.240.210   <none>        80/TCP    107s	# this is the target service
+
+
+Connect to the webapp-color pod and test port 80 
+	terminal --> k exec -it webapp-color -- sh
+
+	Test connection with the service secure-service port 80
+		/opt # --> nc -v -z -w 2 secure-service 80
+
+		# result: nc: secure-service (172.20.240.210:80): Operation timed out
+		We can see that there is some kind of problem
+
+	Exit the webapp-color pod
+		/opt # --> exit
+
+
+List network policies
+	terminal --> k get netpol
+
+	# result:
+	NAME           POD-SELECTOR   AGE
+	default-deny   <none>         6m32s
+
+
+Show details for the network policy default-deny
+	terminal --> k describe netpol default-deny
+
+# result:
+--------------------------------------
+Name:         default-deny
+Namespace:    default
+Created on:   2025-03-22 08:51:13 +0000 UTC
+Labels:       <none>
+Annotations:  <none>
+Spec:
+  PodSelector:     <none> (Allowing the specific traffic to all pods in this namespace)
+  Allowing ingress traffic:
+    <none> (Selected pods are isolated for ingress connectivity)			# nottraffic is allowed
+  Not affecting egress traffic
+  Policy Types: Ingress
+--------------------------------------
+
+We have to create new network policy and allow ingress traffic.
+
+List Pods and their labels (we have to reference the pods)
+	terminal --> k get pods --show-labels
+
+	# result:
+	NAME           READY   STATUS    RESTARTS   AGE     LABELS
+	logger         1/1     Running   0          9m53s   run=logger
+	secure-pod     1/1     Running   0          9m3s    run=secure-pod
+	webapp-color   1/1     Running   0          27m     name=webapp-color
+
+
+Save definition file template from the existing network policy into tetpol.yaml file
+	terminal --> k get netpol default-deny -o yaml > netpol.yaml
+
+Edit the network policy definition template
+	terminal --> vi netpol.yaml
+
+netpol.yaml
+--------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  creationTimestamp: "2025-03-22T08:51:13Z"
+  generation: 1
+  name: network-policy
+  namespace: default
+  resourceVersion: "3518"
+  uid: c52c9859-546c-45e9-af09-d0b9f90705d1
+spec:
+  podSelector:
+    matchLabels:
+      run: secure-pod
+  policyTypes:
+  - Ingress
+  ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            name: webapp-color
+      ports:
+        - protocol: TCP
+          port: 80
+--------------------------------------
+save changes - escape, :wq!, enter
+
+Create a network policy
+	terminal --> k apply -f netpol.yaml
+
+	# result: networkpolicy.networking.k8s.io/network-policy created
+
+
+Connect to the webapp-color pod again and check the traffic
+	terminal --> k exec -it webapp-color -- sh
+
+	Test connection with the service secure-service port 80
+		/opt # --> nc -v -z -w 2 secure-service 80
+
+		# result: secure-service (172.20.240.210:80) open
+		We can see that there is no problem now
+
+	Exit the webapp-color pod
+		/opt # --> exit
+
+- click 'Next' button
+
+
+
+
+3. Create a pod called time-check in the dvl1987 namespace. This pod should run a container called time-check that uses the busybox image.
+---------------------------------------------------------------------------------------------------------------------------
+1. Create a config map called time-config with the data TIME_FREQ=10 in the same namespace.
+2. The time-check container should run the command: while true; do date; sleep $TIME_FREQ;done and write the result to the location /opt/time/time-check.log.
+3. The path /opt/time on the pod should mount a volume that lasts the lifetime of this pod.
+
+Requirements:
+-------------
+Pod time-check configured correctly?
+
+
+Check if the required namespace exist
+	terminal --> k get ns
+
+	# result:
+	NAME              STATUS   AGE
+	default           Active   59m
+	e-commerce        Active   41m
+	kube-node-lease   Active   59m
+	kube-public       Active   59m
+	kube-system       Active   59m
+	marketing         Active   41m
+
+	The dvl1987 namespace DO NOT exist
+
+
+Create the dvl1987 namespace
+	terminal --> k create ns dvl1987
+
+	# result: namespace/dvl1987 created
+
+
+Step 2
+------
+Create configmap
+	terminal --> k create cm time-config -n dvl1987 --from-literal=TIME_FREQ=10
+
+	# result: configmap/time-config created
+
+Verify the configmap craetion
+	terminal --> k get cm -n dvl1987
+
+	# result:
+	NAME               DATA   AGE
+	kube-root-ca.crt   1      2m1s
+	time-config        1      45s		# created
+
+
+Create Pod definition file with name and imgage
+	terminal --> k run time-check --image=busybox --dry-run=client -o yaml > time-check.yaml
+
+Edit the Pod definition file
+	terminal --> vi time-check.yaml
+
+time-check.yaml
+----------------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: time-check
+  name: time-check
+  namespace: dvl1987				# set namespace
+spec:
+  volumes:					# set volume
+    - name: log-volume
+      emptyDir: {}
+  containers:
+  - image: busybox
+    name: time-check
+    command: ["/bin/sh", "-c", "while true; do date; sleep $TIME_FREQ;done > /opt/time/time-check.log"]  # set command output
+    volumeMounts:				# set volume moutn
+      - name: log-volume
+        mountPath: /opt/time
+    env:					# set envs
+      - name: TIME_FREQ
+        valueFrom:
+          configMapKeyRef:
+            name: time-config
+            key: TIME_FREQ
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+----------------------------------------
+save changes - escape, :wq!, enter
+
+Create the Pod
+	terminal --> k create -f time-check.yaml
+
+	# result: pod/time-check created
+
+Verify Pod creation
+	terminal --> k get pods -n dvl1987
+
+	# result:
+	NAME         READY   STATUS    RESTARTS   AGE
+	time-check   1/1     Running   0          14s
+
+
+
+
+4. Create a new deployment called nginx-deploy, with one single container called nginx, image nginx:1.16 and 4 replicas.
+------------------------------------------------------------------------------------------------------------------------
+The deployment should use RollingUpdate strategy with maxSurge=1, and maxUnavailable=2.
+
+Next upgrade the deployment to version 1.17.
+
+Finally, once all pods are updated, undo the update and go back to the previous version.
+
+Requirements:
+-------------
+Deployment created correctly?
+Was the deployment created with nginx:1.16?
+Was it upgraded to 1.17?
+Deployment rolled back to 1.16?
+
+
+Step 1: Create the deployment
+=============================
+
+Create deployment definition template in nginx-deploy.yaml file
+	terminal --> k create deploy nginx-deploy --image=nginx:1.16 --replicas=4 --dry-run=client -o yaml > nginx-deploy.yaml
+
+Edit the deployment template
+	terminal --> vi nginx-deploy.yaml
+
+nginx-deploy.yaml
+---------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: nginx-deploy
+  name: nginx-deploy
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: nginx-deploy
+  strategy: 
+    rollingUpdate:		# added rollingUpdate strategy from here
+      maxSurge: 1
+      maxUnavailable: 2		# to here
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: nginx-deploy
+    spec:
+      containers:
+      - image: nginx:1.16
+        name: nginx
+        resources: {}
+status: {}
+---------------------------------------
+save changes - escape, :wq!, enter
+
+
+Create the deployment
+	terminal --> k apply -f nginx-deploy.yaml
+
+	# result: deployment.apps/nginx-deploy created
+
+Verify deployment creation
+	terminal --> k get deploy
+
+	# result:
+	NAME           READY   UP-TO-DATE   AVAILABLE   AGE
+	nginx-deploy   4/4     4            4           30s	# created
+
+
+
+Step 2: Update the deployment to version 1.17
+=============================================
+
+Use one line commmand tu update image in the deployment
+	terminal --> k set image deploy nginx-deploy nginx=nginx:1.17
+
+	# result: deployment.apps/nginx-deploy image updated
+
+Verify the update of the deployment
+	terminal --> k describe deploy nginx-deploy | grep Image
+
+	# result:     Image:         nginx:1.17
+
+Show deployment status
+	terminal --> k get deploy
+
+	# result:
+	NAME           READY   UP-TO-DATE   AVAILABLE   AGE
+	nginx-deploy   4/4     4            4           5m13s
+
+Wait dor all pods to be in READY state
+
+
+
+
+Step 3: Undo the update and go back to the previous version 1.16
+================================================================
+
+Roll back the deployment in previous version
+	terminal --> k rollout undo deploy nginx-deploy 
+
+	# result: deployment.apps/nginx-deploy rolled back
+
+Check the deployment image
+	terminal --> k describe deploy nginx-deploy | grep Image
+
+	# result:     Image:         nginx:1.16
+
+Check the deployment status
+	terminal --> k get deploy
+
+	# result:
+	NAME           READY   UP-TO-DATE   AVAILABLE   AGE
+	nginx-deploy   4/4     4            4           8m16s
+
+
+
+
+5. Create a redis deployment with the following parameters:
+-----------------------------------------------------------
+Name of the deployment should be redis using the redis:alpine image. It should have exactly 1 replica.
+
+The container should request for .2 CPU. It should use the label app=redis.
+
+It should mount exactly 2 volumes.
+
+a. An Empty directory volume called data at path /redis-master-data.
+b. A configmap volume called redis-config at path /redis-master.
+c. The container should expose the port 6379.
+
+The configmap has already been created.
+
+
+Requirements:
+-------------
+Deployment created correctly?
+
+
+Create deployment template and save it in redis.yaml file
+	terminal --> k create deploy redis --image=redis:alpine --replicas=1 --dry-run=client -o yaml > redis.yaml
+
+Edit the deployment definition file
+	terminal --> vi redis.yaml
+
+
+redis.yaml
+-----------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: redis
+  name: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: redis
+    spec:
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: redis-config
+          configMap:
+            name: redis-config
+      containers:
+      - image: redis:alpine
+        name: redis
+        resources: 				
+          requests:				# added section for resources from here
+            cpu: "0.2"				# to here
+        volumeMounts:				# added section for volume mounts from here
+          - name: data
+            mountPath: /redis-master-data
+          - name: redis-config
+            mountPath: /redis-master		# to here
+        ports:					# added exposed container port 
+          - containerPort: 6379
+status: {}
+-----------------------------------
+save changes - escape, :wq!, enter
+
+
+Create the deployment
+	terminal --> k apply -f redis.yaml
+
+	# result: deployment.apps/redis created
+
+Verify deployment creation
+	terminal --> k get deploy
+
+	# result:
+	NAME           READY   UP-TO-DATE   AVAILABLE   AGE
+	nginx-deploy   4/4     4            4           17m
+	redis          1/1     1            1           33s	# created
+
+
+Check the result of the exam
+----------------------------
+
+
+
+
 
 ================================
 Section 13 178. Lighting Lab - 2
 ================================
 
+Welcome to the KodeKloud CKAD Lightning Lab - Part 2!
+
+NOTE: You can toggle between the questions but make sure that that you click on END EXAM before the the timer runs out.
+While this test environment is valid for 60 minutes, challenge yourself and try to complete all 5 questions within 30 minutes! To pass, correctly complete at least 4 out of 5 questions. Good Luck!!!
+
+
+
+1. We have deployed a few pods in this cluster in various namespaces. Inspect them and identify the pod which is not in a Ready state. Troubleshoot and fix the issue.
+-------------------------------------------------------------------------------------------------------------------------------
+Next, add a check to restart the container on the same pod if the command ls /var/www/html/file_check fails. This check should start after a delay of 10 seconds and run every 60 seconds.
+
+
+You may delete and recreate the object. Ignore the warnings from the probe.
+
+Requirements:
+-------------
+Task completed correctly?
+
+
+List Pods in all namespaces
+	terminal --> k get pods -A
+
+# resuklt:
+NAMESPACE     NAME                                       READY   STATUS    RESTARTS   AGE
+default       dev-pod-dind-878516                        3/3     Running   0          3m2s
+default       pod-xyz1123                                1/1     Running   0          3m3s
+default       webapp-color                               1/1     Running   0          3m2s
+dev0403       nginx0403                                  1/1     Running   0          3m3s
+dev0403       pod-dar85                                  1/1     Running   0          3m2s
+dev1401       nginx1401                                  0/1     Running   0          3m3s	# this is the target Pod
+dev1401       pod-kab87                                  1/1     Running   0          3m2s
+dev2406       nginx2406                                  1/1     Running   0          3m3s
+dev2406       pod-var2016                                1/1     Running   0          3m3s
+e-commerce    e-com-1123                                 1/1     Running   0          3m2s
+kube-system   calico-kube-controllers-5745477d4d-pz9tv   1/1     Running   0          10m
+kube-system   canal-dbhht                                2/2     Running   0          9m42s
+kube-system   canal-vdxh9                                2/2     Running   0          10m
+kube-system   coredns-7484cd47db-czxkf                   1/1     Running   0          10m
+kube-system   coredns-7484cd47db-q6bn7                   1/1     Running   0          10m
+kube-system   etcd-controlplane                          1/1     Running   0          10m
+kube-system   kube-apiserver-controlplane                1/1     Running   0          10m
+kube-system   kube-controller-manager-controlplane       1/1     Running   0          10m
+kube-system   kube-proxy-7cjxj                           1/1     Running   0          9m42s
+kube-system   kube-proxy-7lwkn                           1/1     Running   0          10m
+kube-system   kube-scheduler-controlplane                1/1     Running   0          10m
+marketing     redis-556f566f7f-rcppt                     1/1     Running   0          3m2s
+
+
+Show nginx1401 Pod details
+	terminal --> k describe pod nginx1401 -n dev1401
+
+In the Event section we can see message:
+  Warning  Unhealthy  34s (x25 over 4m6s)  kubelet            Readiness probe failed: Get "http://172.17.1.2:8080/": dial tcp 172.17.1.2:8080: connect: connection refused
+
+
+Take the nginx1401 Pod configuration and save it in a file	
+	terminal --> k get pod nginx1401 -n dev1401 -o yaml > nginx1401.yaml
+
+Edit the pod and check if something is wrong in the definition file
+	terminal --> vi nginx1401.yaml
+
+Also we will ad a liveness probe.
+
+nginx1401.yaml
+-------------------------------------
+...
+spec:
+  containers:
+  - image: kodekloud/nginx
+    imagePullPolicy: IfNotPresent
+    name: nginx
+    ports:
+    - containerPort: 9080			# container port 9080 is different that the readiness port 8080
+      protocol: TCP
+    readinessProbe:
+      failureThreshold: 3
+      httpGet:
+        path: /
+        port: 9080				# change to 9080
+        scheme: HTTP
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 1
+    livenessProbe:				# add liveness probe section from here
+      exec:
+        command:
+          - ls
+          - /var/www/html/file_check		# to here
+      initialDelaySeconds: 10			# add delay and period properties from here
+      periodSeconds: 60				# to here
+    resources: {}
+...
+-------------------------------------
+save changes - escape, :wq!, enter
+
+Recreate the pod
+	terminal --> k replace --force -f nginx1401.yaml
+
+	# result:
+	pod "nginx1401" deleted
+	pod/nginx1401 replaced
+
+
+List Pods in dev1401 namespace
+	terminal --> k get pods -n dev1401
+
+	# result:
+	NAME        READY   STATUS    RESTARTS   AGE
+	nginx1401   1/1     Running   0          46s		# the pod is running
+	pod-kab87   1/1     Running   0          16m
+
+
+- click 'Next' button
 
 
 
 
+2. Create a cronjob called dice that runs every one minute. Use the Pod template located at /root/throw-a-dice. The image throw-dice randomly returns a value between 1 and 6. The result of 6 is considered success and all others are failure.
+--------------------------------------------------------------------------------------------------------------------------------
+The job should be non-parallel and complete the task once. Use a backoffLimit of 25.
+
+If the task is not completed within 20 seconds the job should fail and pods should be terminated.
+
+You don't have to wait for the job completion. As long as the cronjob has been created as per the requirements.
+
+Requirements:
+-------------
+Cronjob created correctly?
+
+Print the provided pod template
+	terminal --> cat /root/throw-a-dice/throw-a-dice.yaml
+
+throw-a-dice.yaml
+-----------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  name: throw-dice-pod
+spec:
+  containers:
+  -  image: kodekloud/throw-dice
+     name: throw-dice
+  restartPolicy: Never
+-----------------------------------
+
+
+Find cronjob definition template in the Kubernetes documentation
+	- https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#example
+
+Create cronjob defintion file
+	terminal --> vi dice-job.yaml
+
+dice-job.yaml
+-----------------------------------
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: dice					# set appropriate name
+spec:
+  schedule: "*/1 * * * *"			# set schedule
+  jobTemplate:
+    spec:
+      completions: 1				# set completion requirement to 1
+      backoffLimit: 25				# set backoff limit
+      activeDeadlineSeconds: 20			# set fail/success limit
+      template:
+        spec:
+          containers:
+          - name: dice				# set appropriate name
+            image: kodekloud/throw-dice		# set required image
+            imagePullPolicy: IfNotPresent
+          restartPolicy: Never			# set restart policy
+-----------------------------------
+sace changes - escape, :wq!, enter
+
+Create the cronjob
+	terminal --> k apply -f dice-job.yaml
+
+	# result: cronjob.batch/dice created
+
+	If error connected with the apiVersion appear, change it to 'batch/v1beta1'
+
+Verify the cornjob creation
+	terminal --> k get cj
+
+	# result:
+	NAME   SCHEDULE      TIMEZONE   SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+	dice   */1 * * * *   <none>     False     0        30s             35s
+
+
+- click 'Next' button
 
 
 
 
+3. Create a pod called my-busybox in the dev2406 namespace using the busybox image. The container should be called secret and should sleep for 3600 seconds.
+------------------------------------------------------------------------------------------------------------------------------
+The container should mount a read-only secret volume called secret-volume at the path /etc/secret-volume. The secret being mounted has already been created for you and is called dotfile-secret.
+
+Make sure that the pod is scheduled on controlplane and no other node in the cluster.
+
+Requirements:
+Pod created correctly?
+
+Check if the dev2406 namespace exist
+	terminal --> k get ns
+
+	# result:
+	NAME              STATUS   AGE
+	default           Active   38m
+	dev0403           Active   30m
+	dev1401           Active   30m
+	dev2406           Active   30m		# exists
+	e-commerce        Active   30m
+	ingress-nginx     Active   13m
+	kube-node-lease   Active   38m
+	kube-public       Active   38m
+	kube-system       Active   38m
+	marketing         Active   30m
+
+
+Create Pod definition template and save it in my-busybox.yaml file
+	terminal --> k run my-busybox --image=busybox -n dev2406 --dry-run=client -o yaml > my-busybox.yaml
+
+Edit the Pod definition file
+	terminal --> vi my-busybox.yaml
+
+my-busybox.yaml
+-----------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: my-busybox
+  name: my-busybox
+  namespace: dev2406
+spec:
+  nodeName: controlplane			# set deployment node as controlplane
+  volumes:					# set volume section fron here
+    - name: secret-volume
+      secret:
+        secretName: dotfile-secret		# to here
+  containers:
+  - image: busybox
+    name: secret    				# change name to 'secret'
+    command:      				# set command from here
+      - sleep
+      - "3600"      				# to here
+    resources: {}
+    volumeMounts:				# set volume mount section from here
+      - name: secret-volume
+        readOnly: true				# set read only property
+        mountPath: /etc/secret-volume		# to here
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+-----------------------------------
+sace changes - escape, :wq!, enter
+
+
+Create the Pod
+	terminal --> k apply -f my-busybox.yaml
+
+	# result: pod/my-busybox created
+
+verify the Pod creation 
+	terminal --> k get pods -n dev2406
+
+	# result:
+	NAME          READY   STATUS    RESTARTS   AGE
+	my-busybox    1/1     Running   0          102s		# created
+	nginx2406     1/1     Running   0          43m
+	pod-var2016   1/1     Running   0          43m
+
+- click 'Next' button
 
 
 
+4. Create a single ingress resource called ingress-vh-routing. The resource should route HTTP traffic to multiple hostnames as specified below:
+------------------------------------------------------------------------------------------------------------------------------
+The service video-service should be accessible on http://watch.ecom-store.com:30093/video
+
+The service apparels-service should be accessible on http://apparels.ecom-store.com:30093/wear
+
+To ensure that the path is correctly rewritten for the backend service, add the following annotation to the resource:
+
+nginx.ingress.kubernetes.io/rewrite-target: /
+
+Here 30093 is the port used by the Ingress Controller
+
+Requirements:
+-------------
+Ingress resource configured correctly?
+
+
+Find ingress resource template in Kubernetes documentation
+	- https://kubernetes.io/docs/concepts/services-networking/ingress/#the-ingress-resource
+
+List services
+	terminal --> k get svc
+
+	# result:
+	NAME               TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
+	apparels-service   ClusterIP   172.20.94.113    <none>        8080/TCP   6m32s		# we will use this service
+	kubernetes         ClusterIP   172.20.0.1       <none>        443/TCP    55m
+	video-service      ClusterIP   172.20.121.135   <none>        8080/TCP   6m32s		# we will use this service
+
+
+Create ingress resource definition file
+	terminal --> vi ingress.yaml
+
+ingress.yaml
+---------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-vh-routing				# change name
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:			
+    - host: watch.ecom-store.com			# set first rule from here
+      http:
+        paths:
+          - pathType: Prefix
+            path: "/video"
+            backend:
+              service:
+                name: video-service
+                port:
+                  number: 8080				# to here
+    - host: apparels.ecom-store.com			# set second rule from here
+      http:
+        paths:
+          - pathType: Prefix
+            path: "/wear"
+            backend:
+              service:
+                name: apparels-service
+                port:
+                  number: 8080				# to here
+---------------------------------------------------
+save changes - escape, :wq!, enter
+
+
+Create the ingress resource
+	terminal --> k apply -f ingress.yaml
+
+	# result: ingress.networking.k8s.io/ingress-vh-routing created
+
+Verify the ingress resource craetion
+	terminal --> k get ingress
+
+# result:
+NAME                 CLASS           HOSTS                                          ADDRESS   PORTS   AGE
+ingress-vh-routing   nginx-example   watch.ecom-store.com,apparels.ecom-store.com             80      92s
+
+
+- click 'Next' button
+
+
+
+
+5. A pod called dev-pod-dind-878516 has been deployed in the default namespace. Inspect the logs for the container called log-x and redirect the warnings to /opt/dind-878516_logs.txt on the controlplane node
+-------------------------------------------------------------------------------------------------------------------------------
+
+Requirements:
+Redirect warnings to file
+
+List pods
+	terminal --> k get pods
+
+	# result:
+	NAME                               READY   STATUS      RESTARTS   AGE
+	dev-pod-dind-878516                3/3     Running     0          4m14s		# target pod
+	dice-29044061-mjnr9                0/1     Error       0          92s
+	dice-29044061-rlxp4                0/1     Error       0          80s
+	dice-29044062-5z66g                0/1     Completed   0          21s
+	dice-29044062-cs7jb                0/1     Error       0          32s
+	pod-xyz1123                        1/1     Running     0          4m14s
+	webapp-apparels-6df97ffb55-6frpx   1/1     Running     0          100s
+	webapp-color                       1/1     Running     0          4m13s
+	webapp-video-7d6646445c-mgf9w      1/1     Running     0          100s
+
+
+List logs of the dev-pod-dind-878516 pod and log-x container
+	terminal --> k logs dev-pod-dind-878516 -c log-x
+
+Redirect the Warnigns to /opt/dind-878516_logs.txt on the controlplane node
+	terminal --> k logs dev-pod-dind-878516 -c log-x | grep WARNING > /opt/dind-878516_logs.txt
+
+Verify that the logs are saved in the required file
+	terminal --> cat /opt/dind-878516_logs.txt
+
+Check exam results
+------------------
 
 
