@@ -1,0 +1,4166 @@
+CONTENT
+
+Section 11 171. Kustomize Problem Statement and Ideology
+Section 11 172. Kustomize VS Helm
+Section 11 173. Installation/Setup
+Section 11 174. kustomization.yaml file
+Section 11 175. Kustomize Output
+Section 11 176. Kustomize ApiVersion & Kind
+Section 11 177. Managing Directories
+Section 11 178. Managing Directories Demo
+Section 11 179. Lab Managing Directories
+Section 11 180. Common Transformers
+Section 11 181. Image Transformers
+Section 11 182. Transformers Demo
+Section 11 183. Lab Transformers
+Section 11 184. Patches Intro
+Section 11 185. Different Types of Patches
+Section 11 186. Patches Directory
+Section 11 187. Patches List
+Section 11 188. Lab Patches
+Section 11 189. Overlays
+Section 11 190. Lab Overlays
+Section 11 191. Components
+Section 11 192. Lab Components
+
+
+========================================================
+Section 11 171. Kustomize Problem Statement and Ideology
+========================================================
+
+Looking over the problem and how Kustomize solve it.
+
+We have example deployment:
+
+nginx-depl.yml
+---------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: nginx
+  template:
+    metadata:
+      labels:
+        component: nginx
+    spec:
+      containers:
+	- name: nginx
+	  image: nginx
+---------------------------------------
+
+
+We have 3 environments and we have to deploy different count of replicas on every environment. How to do it?
+	- dev				
+		nginx-depl.yaml		# deploy 1 replica
+	- staging			
+		nginx-depl.yaml		# deploy 2-3 replicas
+	- prod				
+		nginx-depl.yaml		# deploy 5-10 replicas
+
+
+Option 1
+--------
+
+We create 3 directories with the same deployment definition file and just modify the parameters in the deployemnt configuration for each different environmant.
+
+	- dev folder
+		nginx-depl.yaml
+
+nginx-depl.yml
+---------------------------------------
+...
+spec:
+  replicas: 1
+...
+---------------------------------------
+	- stg folder
+		nginx-depl.yaml
+nginx-depl.yml
+---------------------------------------
+...
+spec:
+  replicas: 2
+...
+---------------------------------------
+	- prod folder
+		nginx-depl.yaml
+nginx-depl.yml
+---------------------------------------
+...
+spec:
+  replicas: 5
+...
+---------------------------------------
+
+
+Deploy Dev
+	terminal --> kubectl apply -f dev/nginx-depl.yaml
+
+Deploy Staging
+	terminal --> kubectl apply -f stg/nginx-depl.yaml
+
+Deploy Prod
+	terminal --> kubectl apply -f prod/nginx-depl.yaml
+
+This solution is OK but not well scalable. For example if we want to create service.yml file we need to copy the created file to all folders. That brings human error chance that we or our colleagues can forget to copy the file in the one of the directories. It works for small deployments. 
+
+When we scale our deployments with more and different resources, we need different solution. We want to treat the setup as simple application itself and thats where Kustomize directory and file topology comes in place.
+
+We 
+	
+	
+
+
+Option 2
+--------
+
+Using Kustomize tool/util
+
+Kustomize have 2 main Kustomize components
+	- Base config				- resources used accros all environments
+	- Overlays				- resources used in specific environment
+
+
+We will look over the example from before:
+
+We have 3 environments and we have to deploy different count of replicas on every environment.
+	- dev				
+		nginx-depl.yaml		# deploy 1 replica
+	- staging			
+		nginx-depl.yaml		# deploy 2-3 replicas
+	- prod				
+		nginx-depl.yaml		# deploy 5-10 replicas
+
+
+base (default) config					overlays
+=====================					========
+
+nginx-depl.yml						overlay/dev
+---------------------------------------			---------------------------------------	
+apiVersion: apps/v1					spec:
+kind: Deployment					  replicas: 1
+metadata:						---------------------------------------	
+  name: nginx-deployment
+spec:							overlay/stg
+  replicas: 1						---------------------------------------	
+  selector:						spec:
+    matchLabels:					  replicas: 2
+      component: nginx					---------------------------------------	
+  template:
+    metadata:						overlay/prod
+      labels:						---------------------------------------
+        component: nginx				spec:
+    spec:						  replicas: 5
+      containers:					---------------------------------------
+	- name: nginx
+	  image: nginx
+---------------------------------------
+
+
+
+Folder Structure
+================
+
+k8s/
+	base/					# common definition files for all envs
+		kustomization.yaml
+		nginx-depl.yaml
+		service.yaml
+		redis-depl.yaml
+	overlays/				# folders with different configuration files for each envs
+		dev/
+			kustomization.yaml
+			config-map.yaml
+		stg/
+			kustomization.yaml
+			config-map.yaml
+		prod/
+			kustomization.yaml
+			config-map.yaml		
+
+
+How Kustomize works:
+
+Kustomize takes the Base resources combines them with the Overlays configurations and produce the Final Manifests file that are deployed on Kubernetes.
+
+
+RPOS:
+- Kustomize comes build-in with kubectl so no other packages need to be installed.
+	- We may want to install latest kustomize ctl (comes not aloways with the latest version)
+
+- No need to learn complex & hard to read templating systems (like helm)
+
+- Only syntax used is YAML - easy to validate
+
+
+
+
+=================================
+Section 11 172. Kustomize VS Helm
+=================================
+
+Helm makes use of Go templates to allow assigning varibles to properties.
+
+Helm deployment example with deployment.yaml and values.yaml files as Go templateing:
+
+Deployment.yaml
+---------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.name }}
+  template: 
+    metadata:
+      labels:
+        app: {{ .Values.name }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+	  image: "nginx:{{ .Values.image.tag }}"      
+---------------------------------------
+
+
+values.yaml
+---------------------------------------
+replicaCount: 1
+
+image:
+  tag: "2.4.4"
+---------------------------------------
+
+
+Project structure using Helm
+----------------------------
+
+k8s/
+	environments/				# directory with values for each environemnt
+		values.dev.yaml
+		values.stg.yaml
+		values.prod.yaml
+	templates/				# Go templates directory
+		nginx-deployment.yaml
+		nginx-service.yaml
+		db-deployment.yaml
+		db-service.yaml
+
+
+Helm is package manager for Kubernetes. 
+	- provides little bit more functionalities from Kustomize like conditionals, loops, functions and hooks.
+	- templates are NOT valid YAML as they use Go templating syntax
+		- Complex templates become hard to read
+
+We must decide if we are going to use Helm or Kustomize over the spcifity of the project we will deploy.
+
+
+
+
+==================================
+Section 11 173. Installation/Setup
+==================================
+
+Requirements
+	- Up and running Kubernetes cluster
+	- Installed kubectl util
+
+Install Kustomize
+	terminal --> curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+
+Verify Kustomize installation
+	terminal --> kustomize version --short
+	
+	# expected result: {kustomize/v4.4.1 2012-11-11T23:36:27Z }
+
+If the verification result is not as above, we need to close the current terminal sesion and open a new one and install Kustomize again.
+
+
+
+=======================================
+Section 11 174. kustomization.yaml file
+=======================================
+
+Example Kubernetes project folder structure
+
+k8s/
+	nginx-depl.yaml
+	nginx-service.yaml
+	kustomization.yaml			# this is the main kustomize file
+
+
+
+Kustomization.yaml
+--------------------------------------------------
+# kubernetes resources to be managed bu kustomize
+resources:						# list of all kubernetes resources
+  - nginx-deployment.yaml
+  - nginx-service.yaml
+
+# Customization that need to be made
+commonLabels:						# simple example for adding label with key-value pair
+  company: KodeKloud
+--------------------------------------------------
+
+
+Build the Kubernetes structure
+	terminal --> kustomize build k8s/
+
+
+Kustomize combine all files and produce one final file with all configurations in it:
+
+
+--------------------------------------
+kustomize build k8s/
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    company: KodeKloud				# applied commonLabels from Kustomization.yaml file
+  name: nginx-loadbalancer-service
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    company: KodeKloud
+    component: nginx
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    company: KodeKloud				# applied commonLabels from Kustomization.yaml file
+  name: nginx-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      company: KodeKloud
+      components: nginx
+  template:
+    metadata:
+      labels:
+        company: KodeKloud
+        component: nginx
+    spec:
+      containers:
+      - image: nginx
+	name: nginx
+--------------------------------------
+
+
+
+Conclusion
+----------
+
+- Kustomize looks for a kustomization file that contains
+	- List of all Kubernetes manifests kustomize should manage
+	- All of the customizations that should be applied
+
+- The 'kustomize build' command combines all the manifests and applies the defined tranformations
+- The 'kustomize build' command DOES NOT apply/deploy the Kubernetes resources to a cluster
+	- It just result in the final configuration that will be used for the deploy
+
+- If we want to aplly the kustomize output configurations, we need to apply them with kubectl util
+
+
+
+
+================================
+Section 11 175. Kustomize Output
+================================
+
+Kustomize DO NOT apply or deploy configs by itself. We have to conbine the commands with kubectl to apply them.
+
+Project structure
+-----------------
+k8s/
+	nginx-depl.yaml
+	nginx-service.yaml
+	kustomization.yaml		# kustomize config file
+
+
+BUILD AND APPLY RESOURCES WITH KUSTOMIZE
+----------------------------------------
+
+Build Kubernetes configuration
+	terminal --> kusomize build k8s/		# this command DO NOT deploy / apply to Kubernetes cluster !!!
+
+	# This command result is the configuration that have to be applied with kubectl util to deploy to Kubernetes Cluster
+
+
+Build Kubernetes configs with Kustomize and apply them with kubectl
+	terminal --> kustomize build k8s/ | kubectl apply -f -
+
+	# kustomize					- common kustomize command
+	# build						- action	
+	# k8s/						- from folder
+	# |						- 'Redirect' - execute next command if previous command is successful
+	# kubect					- kubernetes common CLI command
+	# apply -f -					- apply the result of the previous command
+
+	# expected result:
+	service/nginx-loadbalancer-service created
+	deployment.apps/nginx-deployment created
+	
+
+If the config of the resources are build with Kustomize we can apply them with kubectl
+	terminal --> kubectl apply -k k8s/
+
+	# kubectl				- common kubernetes kubectl util command
+	# apply 				- action
+	# -k k8s/				- use files from directory
+
+	# expected result:
+	service/nginx-loadbalancer-service created
+	deployment.apps/nginx-deployment created
+
+
+
+DELETE RESOURCES WITH KUSTOMIZE
+-------------------------------
+
+Delete resources with Kustomize
+	terminal --> kustomize build k8s/ | kubectl delete -f -
+
+	# expected result:
+	service "nginx-loadbalancer-service" deleted
+	deployment.apps "nginx-deployment" deleted
+
+
+If the resources are build, we can delete them with kubectl util
+	terminal --> kubectl delete -k k8s/
+
+	# kubectl				- common kubernetes kubectl util command
+	# delete 				- action
+	# -k k8s/				- use files from directory
+
+
+
+===========================================
+Section 11 176. Kustomize ApiVersion & Kind
+===========================================
+
+kustomization.yaml
+---------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1		# recommended for breaking changes in the future
+kind: Kustomization
+
+# kubernetes resources to be managed bu kustomize
+resources:						
+  - nginx-depl.yaml
+  - nginx-service.yaml
+
+# Customization that need to be made
+commonLabels:						
+  company: KodeKloud
+---------------------------------------
+
+
+
+
+====================================
+Section 11 177. Managing Directories
+====================================
+
+Example for changing directory structure
+
+Current direcory structure:
+---------------------------
+k8s/
+	api-depl.yaml
+	api-service.yaml
+	db-depl.yaml
+	db-service.yaml
+
+
+We add more resources and we decide to separate the files in different directories:
+
+We reconfigure the folder structure to:
+---------------------------------------
+k8s/
+	api/
+		api-depl.yaml
+		api-service.yaml
+	db/
+		db-depl.yaml
+		db-service.yaml
+
+If we want to apply with kubectl we need to specify the directories 
+	terminal --> kubectl apply -f k8s/api/
+	terminal --> kubectl apply -f k8s/db/
+
+
+When we add more directories or files in the directories, we need to apply every directory again. The solution for this issue is to add a kustomize.yaml file in the main directory:
+
+k8s/
+	kustomize.yaml			# added
+	api/
+		api-depl.yaml
+		api-service.yaml
+	db/
+		db-depl.yaml
+		db-service.yaml
+
+kustomize.yaml
+---------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# kubernetes resource to be managed by kustomize
+resources:
+  - api/api-depl.yaml
+  - api/api-service.yaml
+  - db/db-depl.yaml
+  - db/db-service.yaml
+---------------------------------------
+
+
+Build and apply all Kubernetes resources
+	terminal --> kustomize build k8s/ | kubectl apply -f -
+
+	# expected result:
+	service/api-service created
+	service/db-service created
+	deployment.apps/api-deployment created
+	deployment.apps/db-deployment created
+
+
+
+If kubernetes configuration is already made with Kustomize, we can apply it woth kubectl
+	terminal --> kubectl apply -k k8s/
+
+	# expected result:
+	service/api-service created
+	service/db-service created
+	deployment.apps/api-deployment created
+	deployment.apps/db-deployment created
+
+
+
+We build more and our directories increases. We can create kustomization.yaml file in every subfolder. In the main kustomization.yaml file we provide only routes for every subdirectory so kustomize can search in all of them. In the kustomization.yaml files in the subdirectories we list all resources for the specific diretory.
+
+k8s/
+	kustomization.yaml
+	api/
+		kustomization.yaml
+	db/
+		kustomization.yaml
+	cache/
+		kustomization.yaml
+	kafka/
+		kustomization.yaml
+
+
+k8s/kustomization.yaml
+---------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# kubernetes resource to be managed by kustomize
+resources:
+  - api/
+  - db/
+  - cache/
+  - kafka/
+---------------------------------------
+
+
+k8s/db/kustomization.yaml
+---------------------------------------
+resources:
+  - db-depl.yaml
+  - db-service.yaml
+---------------------------------------
+
+k8s/api/kustomization.yaml
+---------------------------------------
+resources:
+  - api/api-depl.yaml
+  - api/api-service.yaml
+---------------------------------------
+
+...
+
+Apply these resources 
+	terminal --> kustomize build k8s/ | kubectl apply -f -
+
+	# kustomize					- common kustomize command
+	# build						- action	
+	# k8s/						- from folder
+	# |						- execute next command if previous command is successful
+	# kubect					- kubernetes common CLI command
+	# apply -f -					- apply the result of the previous command
+
+
+If the configurations are already build with Kustomize, just apply them with kubectl
+	terminal --> kubectl apply -k k8s/
+
+
+
+
+=========================================
+Section 11 178. Managing Directories Demo
+=========================================
+
+We have folder structure and file structure
+
+k8s/
+  kustomization.yaml			# added kustomization file
+  api/
+    api-depl.yaml
+    api-service.yaml
+  cache/
+    redis-config.yaml
+    redis-depl.yaml
+    redis-service.yaml
+  db/
+    db-config.yaml
+    db-depl.yaml
+    db-service.yaml
+
+
+OPTION 1 - Deploy resources without kustomize
+---------------------------------------------
+
+Apply resources for every subdirectory
+	terminal --> kubectl apply -f k8s/api 
+	terminal --> kubectl apply -f k8s/cache
+	terminal --> kubectl apply -f k8s/db
+
+	or
+
+	terminal --> kubectl apply -f k8s/api -f k8s/cache -f k8s/db		# one line solution
+
+We can delete the resources with 
+	terminal --> kubectl delete -f k8s/api -f k8s/cache -f k8s/db		# one line solution
+
+
+
+OPTION 2 - Deploy resources with kustomization.yaml file
+--------------------------------------------------------
+
+Add kustomization.yaml file in the root directory. 
+
+kustomization.yaml
+---------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# kubernetes resource to be managed by kustomize
+resources:
+  - api/api-depl.yaml
+  - api/api-service.yaml
+  - cache/redis-config.yaml
+  - cache/redis-depl.yaml
+  - cache/redis-service.yaml
+  - db/db-config.yaml
+  - db/db-depl.yaml
+  - db/db-service.yaml
+---------------------------------------
+
+Build the resources with ustomize
+	terminal --> kustomize build k8s/
+
+	# the result is one file with all resources and configs
+
+Apply the resources with kubectl
+	terminal --> kubectl apply -k k8s/
+
+Build and deploy resources with one line command
+	terminal --> kustomize build k8s/ | kubectl apply -f -
+
+
+OPTION 3 - Deploy resources with kustomization.yaml file in every subdirectory
+------------------------------------------------------------------------------
+
+k8s/
+  kustomization.yaml			
+  api/
+    kustomization.yaml
+    api-depl.yaml
+    api-service.yaml
+  cache/
+    kustomization.yaml
+    redis-config.yaml
+    redis-depl.yaml
+    redis-service.yaml
+  db/
+    kustomization.yaml
+    db-config.yaml
+    db-depl.yaml
+    db-service.yaml
+
+
+k8s/kustomization.yaml
+---------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - api/
+  - cache/
+  - db/
+---------------------------------------
+
+
+k8s/api/kustomization.yaml
+---------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - api/api-depl.yaml
+  - api/api-service.yaml
+---------------------------------------
+
+
+k8s/cache/kustomization.yaml
+---------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - redis-config.yaml
+  - redis-depl.yaml
+  - redis-service.yaml
+---------------------------------------
+
+
+k8s/db/kustomization.yaml
+---------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - db-config.yaml
+  - db-depl.yaml
+  - db-service.yaml
+---------------------------------------
+
+
+Build resources with kustomize
+	terminal --> kustomize build k8s/ 
+
+Deploy the resources ith kubectl
+	terminal --> kubectl apply -k k8s/
+
+Build and deploy resources in one line
+	terminal --> kustomize build k8s/ | kubectl apply -f -
+
+
+
+
+
+
+========================================
+Section 11 179. Lab Managing Directories
+========================================
+
+1. Explore the directories and files within /root/code/k8s directory and answer the below question.
+---------------------------------------------------------------------------------------------------
+How many directories have been pre-defined in the k8s directory?
+
+- choose '3' as answer
+
+
+2. Let's create a single kustomization.yaml file in the root of the k8s directory and import all resources defined for db, message-broker, nginx into it.
+---------------------------------------------------------------------------------------------------
+Please ensure to apply the config after creating kustomization.yaml file.
+
+Create k8s/kustomization.yaml 
+
+kustomization.yaml
+---------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - db/db-config.yaml
+  - db/db-depl.yaml
+  - db/db-service.yaml
+  - message-broker/rabbitmq-config.yaml
+  - message-broker/rabbitmq-depl.yaml
+  - message-broker/rabbitmq-service.yaml
+  - nginx/nginx-depl.yaml
+  - nginx/nginx-service.yaml
+---------------------------------------
+
+Build and apply the resources
+	terminal --> kustomize build k8s/ | kubectl apply -f -
+
+	# result:
+	configmap/db-credentials created
+	configmap/redis-credentials created
+	service/db-service created
+	service/nginx-service created
+	service/rabbit-cluster-ip-service created
+	deployment.apps/db-deployment created
+	deployment.apps/nginx-deployment created
+	deployment.apps/rabbitmq-deployment created
+
+
+- click 'Check' button
+
+
+
+3. How many pods were deployed?
+-------------------------------
+In the current(default) namespace.
+
+List pods
+	terminal --> kubectl get pods
+
+	# result:
+	NAME                                   READY   STATUS    RESTARTS   AGE
+	db-deployment-856558f969-2m2kb         1/1     Running   0          55s
+	nginx-deployment-6fd6985867-56b96      1/1     Running   0          55s
+	nginx-deployment-6fd6985867-9lxr5      1/1     Running   0          55s
+	nginx-deployment-6fd6985867-bk8j9      1/1     Running   0          55s
+	rabbitmq-deployment-56cbdbfd4c-9xw6h   1/1     Running   0          55s
+
+- cjoose '5' as answer
+
+
+
+4. What is the type of the service that has been deployed for the message-broker?
+---------------------------------------------------------------------------------
+
+List services
+	terminal --> kubectl get svc
+
+	# result:
+	NAME                        TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)           AGE
+	db-service                  NodePort    10.43.229.158   <none>        27017:31451/TCP   2m11s
+	kubernetes                  ClusterIP   10.43.0.1       <none>        443/TCP           23m
+	nginx-service               NodePort    10.43.2.209     <none>        80:30904/TCP      2m11s
+	rabbit-cluster-ip-service   ClusterIP   10.43.213.188   <none>        5672/TCP          2m10s
+
+
+Show information about rabbit-cluster-ip-service service
+	terminal --> kubectl describe svc rabbit-cluster-ip-service
+
+	# result: Type: ClusterIP
+
+
+- choose 'ClusterIP' as answer
+
+
+
+5. Let's create a kustomization.yaml file in each of the subdirectories and import only the resources within that directory.
+---------------------------------------------------------------------------------------------------------------------------
+Please ensure to specify those directories within the root kustomization.yaml file.
+
+NOTE: Don't forget to deploy the resources.
+
+Create kustomization.yaml file in every subdirectory
+
+k8s/kustomizations.yaml
+-----------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - db/
+  - message-broker/
+  - nginx/
+-----------------------------------------------
+
+k8s/db/kustomizations.yaml
+-----------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - db-config.yaml
+  - db-depl.yaml
+  - db-service.yaml
+-----------------------------------------------
+
+
+k8s/message-broker/kustomizations.yaml
+-----------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - rabbitmq-config.yaml
+  - rabbitmq-depl.yaml
+  - rabbitmq-service.yaml
+-----------------------------------------------
+
+
+k8s/nginx/kustomizations.yaml
+-----------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - nginx-depl.yaml
+  - nginx-service.yaml
+-----------------------------------------------
+
+
+Build and apply resources
+	terminal --> kustomize build k8s/ | kubectl apply -f -
+
+	# result:
+	configmap/db-credentials created
+	configmap/redis-credentials created
+	service/db-service created
+	service/nginx-service created
+	service/rabbit-cluster-ip-service created
+	deployment.apps/db-deployment created
+	deployment.apps/nginx-deployment created
+	deployment.apps/rabbitmq-deployment created
+
+- click 'Check' button
+
+
+
+6. How many pods were created in total?
+---------------------------------------
+
+List pods
+	terminal --> kubectl get pods
+
+
+- choose '6' as answer
+
+
+
+
+===================================
+Section 11 180. Common Transformers
+===================================
+
+We will look how we can use Kustomize to modify our Kubernetes configs. We use Kustomize transformers. Kustomize has several builtin tranformers. We can build our custom tranformers.
+
+We will look ovet specific group of tranforers called Common Tranformers.
+
+What is the issue and how tranformers are solving it.
+
+We ahve deployment and service definition files as follow:
+
+db-depl.yaml
+---------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  replicas: 1
+  selectorL
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:
+        component: api
+    spec:
+      containers:
+	- name: nginx
+	  image: nginx
+---------------------------------------------
+
+
+db-service.yaml
+---------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-service
+spec:
+  selector:
+    component: api
+  ports:
+    - protocol: "TCP"
+      port: 80
+      targetProt: 3000
+  type: LoadBalancer
+---------------------------------------------
+
+We can go true all Kubernetes resources and set the sepcific changes, but in production environment we may have many and different resources and this task can be very risky and difficult.
+
+How we can make changes all files in scalable way? Tranforators come in place in this scenario.
+
+Lets look over a scenarion that we want to add labels, set namespace, set prefix or suffix or set annotations. There are different tranformars for different changes we want to make:
+	- CommonLabel Tranformer 		- adds a label to all Kubernetes resources
+	- Namespace Tranformer 			- adds a common namespace to all resources
+	- Name Prefix/Suffix Tranformer 	- adds a common prefix-suffix to all resources
+	- CommonAnnotations Tranformer 		- adds an annotation to all resources
+
+Kustomization.yaml
+---------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+commonLabels:						# commonLabels tranformer
+  org: KodeKloud
+
+namespace: lab						# namespace transformer
+
+namePrefix: KodKloud-					# prefix transformer
+
+nameSuffix: -dev					# suffix transformer
+
+commonAnnotations:					# commonAnnotation tranformer
+  branch: master					# commonAnnotation tranformer
+---------------------------------------------
+
+
+This will apply chanes as follow
+
+db-service.yaml
+---------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:					# commonAnnotation tranformer
+    branch: master				# commonAnnotation tranformer
+  labels:					# commonLabels transformer
+    org: KodeKloud				# commonLabels transformer
+  name: KodeKloud-db-service-dev		# prefix and suffix transformer	
+  namespace: lab				# namespace transformer
+spec:
+  selector:
+    component: api
+  ports:
+    - protocol: "TCP"
+      port: 80
+      targetProt: 3000
+  type: LoadBalancer
+---------------------------------------------
+
+
+
+==================================
+Section 11 181. Image Transformers
+==================================
+
+Image Tranformer allow us to change an Image of specific Deployment or Container is going to use true Kustomize.
+
+
+We have example deployment:
+
+web-depl.yaml
+---------------------------------------------
+apiVersion: apps/v1
+kind: Deploment
+metadata:
+  name: web-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: web
+  template:
+    metadata:
+      labels:
+        component: web
+    spec:
+      containers:
+        - name: web
+	  image: nginx				# this is the current Image
+---------------------------------------------
+
+We can change the image with kustomize.yaml file
+
+Kustomization.yaml
+---------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+images:
+  - name: nginx					# target image
+    newName: haproxy				# image to replace with
+---------------------------------------------
+
+This will go true all our configuration files and find all containers that use image nginx and replace it with haproxy.
+
+
+
+We can change the tag of the image with kustomize.yaml file as well.
+
+Kustomization.yaml
+---------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+images:
+  - name: nginx					# target image
+    newTag: 2.4					# set tag
+---------------------------------------------
+
+This will go true all our configuration files and find all containers that use image nginx and set tag - nginx:2.4
+
+
+
+
+We can combine the image and tag tranforation with one kustomize file
+
+Kustomization.yaml
+---------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+images:
+  - name: nginx					# target image
+    newName: haproxy				# set new image
+    newTag: 2.4					# set tag
+---------------------------------------------
+
+This will go true all our configuration files and find all containers that use image nginx, replace the image with haproxy and set tag 2.4 - haproxy:2.4
+
+
+
+
+
+=================================
+Section 11 182. Transformers Demo
+=================================
+
+
+We have folder structure
+------------------------
+
+k8s/
+  kustomization.yaml
+  api/
+	api-depl.yaml
+	api-service.yaml
+	kustomization.yaml
+  db/
+	db-config.yaml
+	db-depl.yaml
+	db-service.yaml
+	kustomization.yaml
+
+
+k8s/kustomization.yaml
+---------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - api/
+  - db/
+---------------------------------------------------
+
+
+k8s/api/kustomization.yaml
+---------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - api-depl.yaml
+  - api-service.yaml
+---------------------------------------------------
+
+
+k8s/db/kustomization.yaml
+---------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - db-config.yaml
+  - db-depl.yaml
+  - db-service.yaml
+---------------------------------------------------
+
+
+
+
+Apply commonLabel tranformer to all resources
+=============================================
+
+k8s/kustomization.yaml
+---------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - api/
+  - db/
+
+commonLabels:
+  department: engineering
+---------------------------------------------------
+
+Build the configs
+	terminal --> kustomize build k8s/ 
+
+	# the result will print all resources with labels filed with "department: engineering" key-value pair
+
+
+
+
+Apply commonLabel to api subfolder resources
+============================================
+
+k8s/api/kustomization.yaml
+---------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - api-depl.yaml
+  - api-service.yaml
+
+commonLabels:
+  feature: api
+---------------------------------------------------
+
+Build the configs
+	terminal --> kustomize build k8s/ 
+
+	# the result will print all resources, but only /api resources will have "feature: api" key-value pair
+
+
+
+
+
+Apply commonLabel to db subfolder resources
+===========================================
+
+k8s/db/kustomization.yaml
+---------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - db-config.yaml
+  - db-depl.yaml
+  - db-service.yaml
+
+commonLabels:
+  feature: db
+---------------------------------------------------
+
+Build the configs
+	terminal --> kustomize build k8s/ 
+
+	# the result will print all resources, but only /db resources will have "feature: db" key-value pair
+
+
+
+
+
+Set specific namespace to all resources
+=======================================
+
+k8s/kustomization.yaml
+---------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - api/
+  - db/
+
+commonLabels:
+  department: engineering
+
+namespace: debugging
+---------------------------------------------------
+
+Build the configs
+	terminal --> kustomize build k8s/ 
+
+	# the result will print all resources with "namespace: debugging" field
+
+
+
+
+Set specific prefix and suffix to resources
+===========================================
+
+Add prefix "KodeKloud-" to all resources
+Add suffix "-web" to api subfolder resources
+Add suffix "-storage" to db subfolder resources
+
+
+Add prefix "KodeKloud-" to all resources
+----------------------------------------
+
+k8s/kustomization.yaml
+---------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - api/
+  - db/
+
+commonLabels:
+  department: engineering
+
+namespace: debugging
+
+namePrefix: KodeKloud-
+---------------------------------------------------
+
+
+
+Add suffix "-web" to api subfolder resources
+--------------------------------------------
+
+k8s/api/kustomization.yaml
+---------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - api-depl.yaml
+  - api-service.yaml
+
+commonLabels:
+  feature: api
+
+nameSuffix: -web
+---------------------------------------------------
+
+
+
+
+Add suffix "-storage" to db subfolder resources
+-----------------------------------------------
+
+k8s/db/kustomization.yaml
+---------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - db-config.yaml
+  - db-depl.yaml
+  - db-service.yaml
+
+commonLabels:
+  feature: db
+
+nameSuffix: -storage
+---------------------------------------------------
+
+
+Build the configs
+	terminal --> kustomize build k8s/ 
+
+	# result:
+	# all resources will have prefix "KodeKloud-"
+	# /api resources will have suffix "-web"
+	# /db resources will have suffix "-sorage"
+
+
+
+
+Set annotation to all resources
+===============================
+
+k8s/kustomization.yaml
+---------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - api/
+  - db/
+
+commonLabels:
+  department: engineering
+
+namespace: debugging
+
+namePrefix: KodeKloud-
+
+commonAnnotations: 
+  logging: verbose
+---------------------------------------------------
+
+Build the configs
+	terminal --> kustomize build k8s/ 
+
+	# result: all resources will be printed with "annotations: logging: verbose" fields
+
+
+
+
+Set image and tag tranformer to db resources
+============================================
+
+- Our db uses mongo db and we want to change the image to postgres
+- if we want to make changes to all resources we need to set the image and tag tranformer to k8s/kustomization.yaml 
+- if we want to make changes to db subfolder resources only we need to set the image and tag tranformer to k8s/db/kustomization.yaml
+
+
+k8s/db/kustomization.yaml
+---------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - db-config.yaml
+  - db-depl.yaml
+  - db-service.yaml
+
+commonLabels:
+  feature: db
+
+nameSuffix: -storage
+
+images:
+  - name: mongo			# target image
+    newName: postgres		# new image
+    newTag: "4.2"		# set tag - string
+---------------------------------------------------
+
+
+Build the configs
+	terminal --> kustomize build k8s/ 
+
+	# result: this will change image 'mongo' in db subfolder to 'postgres:4.2' if used
+	# names of the containers are not changed, just used image
+
+
+
+
+================================
+Section 11 183. Lab Transformers
+================================
+
+1. Explore the files and directories which are available at the /root/code/k8s directory and be ready to answer the upcoming questions.
+------------------------------------------------------------------------------------------
+
+Explore the folder and file structure
+
+- click 'Ok' button
+
+
+
+
+2. What is the label that will get assigned to every Kubernetes resource within /root/code/k8s/ project?
+--------------------------------------------------------------------------------------------------------
+
+in /root/code/k8s/ we have kustomization.yaml file 
+----------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - db/
+  - monitoring/
+  - nginx/
+
+commonLabels:
+  sandbox: dev		# this is the label
+----------------------------------------------------
+
+- choose 'sandbox: dev' as answer
+
+
+
+
+3. What is the name that will be prefixed before all database resources?
+------------------------------------------------------------------------
+
+in /root/code/k8s/db we have kustomization.yaml file 
+----------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - NoSql/
+  - Sql/
+  - db-config.yaml
+
+namePrefix: data-			# this is the prefix
+----------------------------------------------------
+
+- choose 'data-' as answer
+
+
+
+
+4. What is the namespace that all the monitoring resources will be deployed to?
+-------------------------------------------------------------------------------
+
+in /root/code/k8s/monitoring we have kustomization.yaml file 
+----------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - grafana-depl.yaml
+  - grafana-service.yaml
+
+namespace: logging			# this is the namespace
+----------------------------------------------------
+
+- choose 'logging' as answer
+
+
+
+
+5. Assign the following annotation to all nginx and monitoring resources:
+-------------------------------------------------------------------------
+
+owner: bob@gmail.com
+
+
+in /root/code/k8s/nginx/kustomization.yaml file add
+----------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - nginx-depl.yaml
+  - nginx-service.yaml
+
+commonAnnotations:		# added
+  owner: bob@gmail.com		# added
+----------------------------------------------------
+save changes: ctrl + s
+
+in /root/code/k8s/monitoring/kustomization.yaml file add
+----------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - grafana-depl.yaml
+  - grafana-service.yaml
+
+namespace: logging
+
+commonAnnotations:		# added
+  owner: bob@gmail.com		# added
+----------------------------------------------------
+save changes: ctrl + s
+
+Build the configs
+	terminal --> kustomize build k8s/ 
+
+
+- click 'Check' button
+
+
+
+
+
+6. Transform all postgres images in the project to mysql.
+---------------------------------------------------------
+
+in /root/code/k8s/kustomization.yaml file add
+----------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - db/
+  - monitoring/
+  - nginx/
+
+commonLabels:
+  sandbox: dev
+
+images:					# added
+  - name: postgres			# added
+    newName: mysql			# added
+----------------------------------------------------
+save changes: ctrl + s
+
+Build the configs
+	terminal --> kustomize build k8s/ 
+
+
+- click 'Check' button
+
+
+
+
+
+7. Transform all nginx images in the nginx directory to nginx:1.23.
+-------------------------------------------------------------------
+
+
+in /root/code/k8s/nginx/kustomization.yaml file add
+----------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - nginx-depl.yaml
+  - nginx-service.yaml
+
+commonAnnotations:
+  owner: bob@gmail.com
+
+images:				# added
+  - name: nginx			# added
+    newTag: "1.23"		# added
+----------------------------------------------------
+save changes: ctrl + s
+
+Build the configs
+	terminal --> kustomize build k8s/ 
+
+
+- click 'Check' button
+
+
+
+
+=============================
+Section 11 184. Patches Intro
+=============================
+
+Patches info
+------------
+
+- Kustomize patches provide another method to modify Kubernetes configs
+
+- Unlike common transformers, patches provide a more "surgical" approach to targeting one or more specific sections in a Kubernetes resource (specific object)
+
+- We must set 3 parameters to create a patch
+
+	- Operation Type: add/remove/replace
+
+	- Target: What resource should be modified
+		* kind
+		* version/group
+		* name
+		* namespace
+		* labelSelector
+		* annotationSelector
+
+	- Value: What is the value that will either be replaced or added with (only needed for add/replace operations)
+
+
+
+Example 1
+=========
+
+We want to set a patch to change the name property from 'api-deployment' to 'web-deployment'
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				# this is the target name property
+spec:
+  replicas: 1
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:
+        components: api
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+------------------------------------------
+
+
+Patch:
+------
+
+kustomization.yaml
+------------------------------------------
+patches:
+  - target:
+      kind: Deployment				# target object type
+      name: api-deployment			# target object name
+
+    patch: |-					# '|-' - patch type - inline patch in this example 
+      - op: replace				# operation
+        path: /metadata/name			# location of the property we want to do operaton on
+	value: web-deployment			# value we want to set
+------------------------------------------
+
+
+
+result
+------
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-deployment				# this is the replaced property
+spec:
+  replicas: 1
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:
+        components: api
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+------------------------------------------
+
+
+
+
+Example 2
+=========
+
+We want to set a patch to change the replicas from 1 to 5
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				# this is the target property
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:
+        components: api
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+------------------------------------------
+
+
+Patch:
+------
+
+kustomization.yaml
+------------------------------------------
+patches:
+  - target:
+      kind: Deployment				# target object type
+      name: api-deployment			# target object name
+    patch: |-					# '|-' - patch type - inline patch in this example 
+      - op: replace				# operation
+        path: /spec/replicas			# location of the property we want to do operaton on
+	value: 5				# value we want to set
+------------------------------------------
+
+
+result
+------
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 5				# this is the replaced property
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:
+        components: api
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+------------------------------------------
+
+
+
+PATCHES TYPES
+=============
+
+We can define patches in 2 ways
+	- JSON 6902 Patch		# https://datatracker.ietf.org/doc/html/rfc6902
+	- strategic merge patch		# prefered for more readable and kubernetes config similarity
+
+
+JSON 6902 Patch example
+-----------------------
+
+kustomization.yaml
+------------------------------------------
+patches:
+  - target:
+      kind: Deployment				# target object type
+      name: api-deployment			# target object name
+    patch: |-					# '|-' - patch type - inline patch in this example 
+      - op: replace				# operation
+        path: /spec/replicas			# location of the property we want to do operaton on
+	value: 5				# value we want to set
+------------------------------------------
+
+
+Strategic merge patch example
+-----------------------------
+
+- this type patch is very similar to kubernetes config object
+- is replacing the configuration we want to change only
+
+kustomization.yaml
+------------------------------------------
+patches:
+  - patch: |-
+      apiVersion: apps/v1			# specify apiVersion
+      kind: Deployment				# target object type
+      metadata:
+	name: api-deployment			# specify the target object name
+      spec:
+	replicas: 5				# specify properties we want to change
+------------------------------------------
+
+We can use both types. Strategic type is a bit more readable.
+
+
+
+
+==========================================
+Section 11 185. Different Types of Patches
+==========================================
+
+PATCH TYPES
+===========
+
+We have two ways to define a patch
+	- JSON 6902 Patch		# https://datatracker.ietf.org/doc/html/rfc6902
+	- strategic merge patch		# prefered for more readable and kubernetes config similarity
+
+
+
+For JSON 6902 Patch
+===================
+
+Inline patch - one file	in case of small count of changes			
+------------------------------------------	
+patches:
+  - target:
+      kind: Deployment				
+      name: api-deployment			
+    patch: |-					
+      - op: replace				
+        path: /spec/replicas			
+	value: 5
+------------------------------------------
+
+
+
+Separate Files - in case of many changes we want to keep track of
+--------------
+
+kustomization.yaml						replica-patch.yaml						
+------------------------------------------			------------------------------------------
+patches:							- op: replace
+  - path: replica-patch.yaml					  path: /spec/replicas
+    target:							  value: 5
+      kind: Deployment				
+      name: api-deployment			
+------------------------------------------			------------------------------------------
+
+
+
+
+
+strategic merge patch
+=====================
+
+Inline patch - one file	in case of small count of changes	
+		
+kustomization.yaml
+------------------------------------------
+patches:
+  - patch: |-
+      apiVersion: apps/v1			# specify apiVersion
+      kind: Deployment				# target object type
+      metadata:
+	name: api-deployment			# specify the target object name
+      spec:
+	replicas: 5				# specify properties we want to change
+------------------------------------------
+
+
+Separate Files - in case of many changes we want to keep track of
+--------------
+
+kustomization.yaml						replica-patch.yaml						
+------------------------------------------			------------------------------------------
+patches:							apiVersion: apps/v1
+  - replica-patch.yaml						kind: Deployment
+								metadata:
+								  name: api-deployment
+								spec:
+								  replicas: 5
+------------------------------------------			------------------------------------------
+
+
+
+
+
+=================================
+Section 11 186. Patches Directory
+=================================
+
+
+How we can update key-value pair in a dictionary in a Kubernetes config using the two types of patches
+======================================================================================================
+	- Json6902
+	- strategic merge patch	
+
+
+Json6902 patch
+==============
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:				
+        components: api			# taget key-value pair
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+------------------------------------------
+
+
+kustomization.yaml
+------------------------------------------
+patches:
+  - target: 
+      kind: Deployment						# target object type
+      name: api-deployment					# target object name
+    patch: |-
+      - op: replace						# operation
+        path: /spec/template/metadata/labels/component		# target object location
+	value: web						# value replaced
+------------------------------------------
+
+
+result:
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:				
+        component: web				# changed value from 'api' to 'web'
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+------------------------------------------
+
+
+
+
+
+strategic merge patch	
+=====================
+
+Same change with strateguc merge patch:
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:				
+        components: api			# taget key-value pair
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+------------------------------------------
+
+
+
+We will use separate files for this example. We can also use inline patch (in one file) depending od our preferences.
+
+kustomization.yaml
+------------------------------------------
+patches:
+  - label-patch.yaml				# this is the used patch file
+------------------------------------------
+
+
+label-patch.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  template
+    metadata:
+      labels:
+	component: web				# this is the target key-value pair
+------------------------------------------
+
+
+This will merge the configs in label-patch.yaml file and the original Kubernetes config api-depl.yaml file. It will change only the differences in the label-patch.yaml file.
+
+
+
+
+How we can add a new key-value pair in a dictionary in a Kubernetes config using the two types of patches
+=========================================================================================================
+	- Json6902
+	- strategic merge patch	
+
+
+- Add label "org: KodeKloud" in api-deplyment.yaml file
+
+
+Json6902 patch
+==============
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:				
+        components: api			
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+------------------------------------------
+
+
+kustomization.yaml
+------------------------------------------
+patches:
+  - target: 
+      kind: Deployment						# target object type
+      name: api-deployment					# target object name
+    patch: |-
+      - op: add							# operation
+        path: /spec/template/metadata/labels/org		# add key in a location
+	value: KodeKloud					# value for the key
+------------------------------------------
+
+
+result:
+-------
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:				
+        components: api			
+	org: KodeKloud			# added key-value pair
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+------------------------------------------
+
+
+
+
+
+strategic merge patch
+=====================
+
+Same change with strateguc merge patch:
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:				
+        components: api			
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+------------------------------------------
+
+
+We will use separate files for this example. We can also use inline patch (in one file) depending od our preferences.
+
+kustomization.yaml
+------------------------------------------
+patches:
+  - label-patch.yaml				# this is the used patch file
+------------------------------------------
+
+
+label-patch.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  template
+    metadata:
+      labels:
+	org: KodeKloud				# add this key-value pair
+------------------------------------------
+
+This will merge the configs in label-patch.yaml file and the original Kubernetes config api-depl.yaml file. It will apply only the differences in the label-patch.yaml file.
+
+
+result:
+-------
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:				
+        components: api			
+	org: KodeKloud			# added key-value pair
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+------------------------------------------
+
+
+
+
+
+How we can remove a key-value pair in a dictionary in a Kubernetes config using the two types of patches
+========================================================================================================
+	- Json6902
+	- strategic merge patch	
+
+
+
+Json6902 patch
+==============
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:		
+	org: KodeKloud				# we want to remove this label	
+        components: api			
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+------------------------------------------
+
+
+kustomization.yaml
+------------------------------------------
+patches:
+  - target: 
+      kind: Deployment						# target object type
+      name: api-deployment					# target object name
+    patch: |-
+      - op: remove						# operation
+        path: /spec/template/metadata/labels/org		# remove key-value pair in a location
+------------------------------------------
+
+
+result:
+-------
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:				# removed 'org: KodeKloud' key-value pair
+        components: api			
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+------------------------------------------
+
+
+
+
+
+
+strategic merge patch
+=====================
+
+Same change with strateguc merge patch:
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:		
+	org: KodeKloud			# we want to remove this label			
+        components: api			
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+------------------------------------------
+
+
+We will use separate files for this example. We can also use inline patch (in one file) depending od our preferences.
+
+kustomization.yaml
+------------------------------------------
+patches:
+  - label-patch.yaml				# this is the used patch file
+------------------------------------------
+
+
+label-patch.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  template
+    metadata:
+      labels:
+	org: null				# set this value to 'null' to delete the key-value pair
+------------------------------------------
+
+This will merge the configs in label-patch.yaml file and the original Kubernetes config api-depl.yaml file. It will apply only the differences in the label-patch.yaml file.
+
+
+result:
+-------
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:				# removed 'org: KodeKloud' key-value pair
+        components: api			
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+------------------------------------------
+
+
+
+
+============================
+Section 11 187. Patches List
+============================
+
+How we can change name and image in a list in a Kubernetes config using the two types of patches
+================================================================================================
+	- Json6902
+	- strategic merge patch	
+
+Json6902 patch
+==============
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:		
+	org: KodeKloud			
+        components: api			
+    spec:
+      containers:				# we will use container section that contain list
+        - name: nginx
+          image: nginx
+------------------------------------------
+
+
+kustomization.yaml
+------------------------------------------
+patches:
+  - target: 
+      kind: Deployment						# target object type
+      name: api-deployment					# target object name
+    patch: |-
+      - op: replace						# operation
+        path: /spec/template/spec/containers/0			# path to the list and index (0 - first list entity)
+	value:							
+	  name: haproxy						# change name
+	  image: haproxy					# change image
+------------------------------------------
+
+
+result:
+-------
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:		
+	org: KodeKloud			
+        components: api			
+    spec:
+      containers:				
+        - name: haproxy				# changed to haproxy
+          image: haproxy			# changed to haproxy
+------------------------------------------
+
+
+
+
+strategic merge patch
+=====================
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:		
+	org: KodeKloud			
+        components: api			
+    spec:
+      containers:				# we will use container section that contain list
+        - name: nginx
+          image: nginx
+------------------------------------------
+
+
+kustomization.yaml
+------------------------------------------
+patches:
+  - label-patch.yaml				# this is the used patch file
+------------------------------------------
+
+
+label-patch.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  template
+    spec:
+      containers:
+	- name: nginx				# container name selector
+	  image: haproxy			# change image
+------------------------------------------
+
+
+result:
+-------
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:		
+	org: KodeKloud			
+        components: api			
+    spec:
+      containers:				
+        - name: nginx				
+          image: haproxy			# changed to haproxy
+------------------------------------------
+
+
+
+
+How we can add list entity in a Kubernetes config using the two types of patches
+================================================================================
+	- Json6902
+	- strategic merge patch	
+
+
+Json6902 patch
+==============
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:		
+	org: KodeKloud			
+        components: api			
+    spec:
+      containers:				# we will use container section that contain list
+        - name: nginx
+          image: nginx
+------------------------------------------
+
+
+kustomization.yaml
+------------------------------------------
+patches:
+  - target: 
+      kind: Deployment						# target object type
+      name: api-deployment					# target object name
+    patch: |-
+      - op: add							# operation
+        path: /spec/template/spec/containers/-			# path to the list ('-' - append to list, 0, 1 - add as index)
+	value:							
+	  name: haproxy						# add name
+	  image: haproxy					# add image
+------------------------------------------
+
+
+result:
+-------
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:		
+	org: KodeKloud			
+        components: api			
+    spec:
+      containers:		
+        - name: nginx
+          image: nginx		
+        - name: haproxy				# added
+          image: haproxy			# added
+------------------------------------------
+
+
+
+
+strategic merge patch
+=====================
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:		
+	org: KodeKloud			
+        components: api			
+    spec:
+      containers:				# we will use container section that contain list
+        - name: web
+          image: nginx
+------------------------------------------
+
+
+kustomization.yaml
+------------------------------------------
+patches:
+  - label-patch.yaml				# this is the used patch file
+------------------------------------------
+
+
+label-patch.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  template
+    spec:
+      containers:
+	- name: haproxy				# add name 
+	  image: haproxy			# add image
+------------------------------------------
+
+
+result:
+-------
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:		
+	org: KodeKloud			
+        components: api			
+    spec:
+      containers:				
+        - name: web
+          image: nginx		
+        - name: haproxy				# added
+          image: haproxy			# added
+------------------------------------------
+
+
+
+
+How we can delete list entity in a Kubernetes config using the two types of patches
+===================================================================================
+	- Json6902
+	- strategic merge patch	
+
+
+Json6902 patch
+==============
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:		
+	org: KodeKloud			
+        components: api			
+    spec:
+      containers:				# we will use container section that contain list
+        - name: web
+          image: nginx		
+        - name: database				
+          image: mongo			
+------------------------------------------
+
+
+kustomization.yaml
+------------------------------------------
+patches:
+  - target: 
+      kind: Deployment						# target object type
+      name: api-deployment					# target object name
+    patch: |-
+      - op: remove						# operation
+        path: /spec/template/spec/containers/1			# path to the list and index to remove (0, 1 - remove index)
+------------------------------------------
+
+
+result:
+-------
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:		
+	org: KodeKloud			
+        components: api			
+    spec:
+      containers:				# removed second entity
+        - name: web
+          image: nginx		
+------------------------------------------
+
+
+
+
+strategic merge patch
+=====================
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:		
+	org: KodeKloud			
+        components: api			
+    spec:
+      containers:				# we will use container section that contain list
+        - name: web
+          image: nginx		
+        - name: database				
+          image: mongo	
+------------------------------------------
+
+
+kustomization.yaml
+------------------------------------------
+patches:
+  - label-patch.yaml				# this is the used patch file
+------------------------------------------
+
+
+label-patch.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  template:
+    spec:
+      containers:
+	- $patch: delete			# set type patch to 'delete'
+	  name: database			# name selector
+------------------------------------------
+
+
+result:
+-------
+
+api-depl.yaml
+------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment				
+spec:
+  replicas: 1				
+  selector: 
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:		
+	org: KodeKloud			
+        components: api			
+    spec:
+      containers:				# deleted container with name 'database'	
+        - name: web
+          image: nginx		
+------------------------------------------
+
+
+
+
+===========================
+Section 11 188. Lab Patches
+===========================
+
+1. In this lab we will explore Kustomize patches.
+-------------------------------------------------
+It is another method to modifying Kubernetes configs.
+
+Explore folder and file structure
+
+- click 'Ok' button
+
+
+
+
+2. We have created several Kubernetes resource files in /root/code/k8s along with it's corresponding kustomization.yaml file.
+-----------------------------------------------------------------------------------------------------------------------------
+Explore the directory and answer the upcoming questions.
+
+
+- click 'Ok' button
+
+
+
+
+3. How many nginx pods will get created?
+----------------------------------------
+
+we have nginx.yaml file
+-------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: nginx
+  template:
+    metadata:
+      labels:
+        component: nginx
+    spec:
+      containers:			# we have one container/pod
+        - name: nginx
+          image: nginx
+-------------------------
+
+Also we have kustomize.yaml file
+-------------------------
+...
+patches:
+  - target:
+      kind: Deployment
+      name: nginx-deployment
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3			# we have patch with 3 replicas
+...
+-------------------------
+
+- choose '3' as answer
+
+
+
+
+
+
+4. What are the labels that will be applied to the mongo deployment?
+--------------------------------------------------------------------
+
+We have mongo-depl.yaml file
+-----------------------------------
+...
+  template:
+    metadata:
+      labels:
+        component: mongo					# component=mongo
+...
+-----------------------------------
+
+We have also mongo-label-patch.yaml file
+-----------------------------------
+- op: add
+  path: /spec/template/metadata/labels/cluster			# cluster=staging
+  value: staging
+
+- op: add
+  path: /spec/template/metadata/labels/feature			# feature=db
+  value: db
+-----------------------------------
+
+- choose 'cluster=staging,component=mongo,geature=db' as answer
+
+
+
+
+5. What is the target port of the mongo-cluster-ip-service?
+-----------------------------------------------------------
+
+We have mongo-service.yaml file
+-----------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-cluster-ip-service
+spec:
+  type: ClusterIP
+  selector:
+    component: mongo
+  ports:
+    - port: 27017
+      targetPort: 27017
+-----------------------------------
+
+We have also section in kustomization.yaml file
+-----------------------------------
+  - target:
+      kind: Service
+      name: mongo-cluster-ip-service
+    patch: |-
+      - op: replace
+        path: /spec/ports/0/port
+        value: 30000
+
+      - op: replace
+        path: /spec/ports/0/targetPort	
+        value: 30000				# this will be the final target port configured
+-----------------------------------
+
+- choose '30000' as asnwer
+
+
+
+
+
+6. We just added few files along with some modifications in the k8s directory, observe the changes and answer the following questions.
+----------------------------------------------------------------------------------------------------------
+How many containers are in the api pod?
+
+
+We have api-depl.yaml file
+-------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:
+        component: api
+    spec:
+      containers:				# we have one configured container
+        - name: nginx
+          image: nginx
+-------------------------------------------
+
+
+
+We have also kustomization.yaml file
+-------------------------------------------
+resources:
+  - mongo-depl.yaml
+  - api-depl.yaml
+  - mongo-service.yaml
+  - host-pv.yaml
+  - host-pvc.yaml
+
+patches:
+  - mongo-patch.yaml
+  - api-patch.yaml				# configured patch for api-deployment
+-------------------------------------------
+
+
+We have api-patch.yaml file
+-------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  template:
+    spec:
+      containers:				# added one container more
+        - name: memcached
+          image: memcached
+-------------------------------------------
+
+
+- choose '2' as answer
+
+
+
+
+7. What path in the mongo container is the mongo-volume volume mounted at?
+--------------------------------------------------------------------------
+
+We have mongo-depl.yaml file
+----------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: mongo
+  template:
+    metadata:
+      labels:
+        component: mongo
+    spec:
+      containers:
+        - name: mongo
+          image: mongo
+----------------------------------
+
+We have also kustomization.yaml file
+-------------------------------------------
+resources:
+  - mongo-depl.yaml
+  - api-depl.yaml
+  - mongo-service.yaml
+  - host-pv.yaml
+  - host-pvc.yaml
+
+patches:
+  - mongo-patch.yaml			# configured patch for mongo-deployment
+  - api-patch.yaml				
+-------------------------------------------
+
+
+We have mongo-patch.yaml file
+-------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-deployment
+spec:
+  template:
+    spec:
+      containers:
+        - name: mongo			# this is the mongo container
+          volumeMounts:
+            - mountPath: /data/db	# this is the volume mount path
+              name: mongo-volume
+      volumes:				
+        - name: mongo-volume
+          persistentVolumeClaim:
+            claimName: host-pvc
+-------------------------------------------
+
+- choose '/data/db' as answer
+
+
+
+
+8. In api-patch.yaml create a strategic merge patch to remove the memcached container.
+--------------------------------------------------------------------------------------
+
+
+we have api-depl.yaml file
+--------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:
+        component: api
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+        - name: memcached		# remove target
+          image: memcached		# remove target
+--------------------------------------
+
+
+set kostumization.yaml file
+--------------------------------------
+resources:
+  - mongo-depl.yaml
+  - api-depl.yaml
+  - mongo-service.yaml
+
+patches:
+  - path: /root/code/k8s/api-patch.yaml		# set correct path
+--------------------------------------
+
+
+
+set api-patch.yaml file 
+--------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  template:
+    spec:
+      containers:
+        - $patch: delete  		# set delete patch
+          name: memcached  		# target container name
+--------------------------------------
+
+
+Build and apply kustomization configurations
+	terminal --> kustomize build k8s/ | kubectl apply -f -
+
+
+- click 'Check' button
+
+
+
+
+9. Create an inline json6902 patch in the kustomization.yaml file to remove the label org: KodeKloud from the mongo-deployment.
+-------------------------------------------------------------------------------------------------------------------------------
+
+We have mongo-depl.yaml file
+------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: mongo
+  template:
+    metadata:
+      labels:
+        component: mongo
+        org: KodeKloud			# we need to remove this label
+    spec:
+      containers:
+        - name: mongo
+          image: mongo
+------------------------------------
+
+
+set kustomization.yaml file
+-----------------------------------------------------
+resources:
+  - mongo-depl.yaml
+  - api-depl.yaml
+  - mongo-service.yaml
+
+patches:
+  - target: 
+      kind: Deployment						
+      name: mongo-deployment					
+    patch: |-
+      - op: remove						
+        path: /spec/template/metadata/labels/org		# remove this key-value pair
+-----------------------------------------------------
+
+Build and apply kustomization configurations
+	terminal --> kustomize build k8s/ | kubectl apply -f -
+
+
+- click 'Check' button
+
+
+
+
+========================
+Section 11 189. Overlays
+========================
+
+Overlays are used to use the base resources and make changes and configurations for specifuc environment. Overlays are pathes used for the sepcific environment.
+
+We have 3 environments
+	- dev
+	- stg
+	- prod
+
+
+Folder and file structure
+-------------------------
+
+k8s/
+  base/				# shared default configurations
+    	kustomization.yaml
+    	nginx-depl.yanl
+    	sevice.yaml
+    	redis-depl.yaml
+  overlays/			# specific configurations for each environment
+    dev/			# configurations for dev env
+	kustomization.yaml
+	config-map.yaml
+    stg/			# configurations for stg env
+	kustomization.yaml
+	config-map.yaml
+    prod/			# configurations for prod env
+	kustomization.yaml
+	config-map.yaml
+
+
+
+base/nginx-depl.yaml
+-----------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  replicas: 1				# we want to change the replicas
+-----------------------------------
+
+
+base/kustomization.yaml
+-----------------------------------
+resources:				# specified only shared resources
+  - nginx-depl.yaml
+  - service.yaml
+  - redis-depl.yaml
+-----------------------------------
+
+
+dev/kustomization.yaml
+-----------------------------------
+bases:					# base resources
+  - ../../base				# set path - go up 2 directories (to k8s/) and enter base/ directory.
+					# look for kustomization.yaml file in base/ dir
+
+patch: |-				# inline patch type
+      - op: replace			# set replace operation
+	path: /spec/replicas		# specify path to replicas field
+	value: 2			# set replicas to 2
+-----------------------------------
+
+
+
+prod/kustomization.yaml
+-----------------------------------
+bases:					# base resources
+  - ../../base				# set path - go up 2 directories (to k8s/) and enter base/ directory.
+					# look for kustomization.yaml file in base/ dir
+
+patch: |-				# inline patch type
+      - op: replace			# set replace operation
+	path: /spec/replicas		# specify path to replicas field
+	value: 3			# set replicas to 3
+-----------------------------------
+
+
+
+We can add resources in specific environments without adding them into base folder resources.
+
+
+
+Add configurations in prod env
+==============================
+
+New folder and file structure
+-----------------------------
+k8s/
+  base/				# shared default configurations
+    	kustomization.yaml
+    	nginx-depl.yanl
+    	sevice.yaml
+    	redis-depl.yaml
+  overlays/			# specific configurations for each environment
+    dev/			# configurations for dev env
+	kustomization.yaml
+	config-map.yaml
+	volume.yaml		# added
+    stg/			# configurations for stg env
+	kustomization.yaml
+	config-map.yaml
+    prod/			# configurations for prod env
+	kustomization.yaml
+	config-map.yaml
+	grafana-depl.yaml	# added
+
+
+We add resources field in prod kustomization file
+
+prod/kustomization.yaml
+-----------------------------------
+bases:
+  - ../../base				# set path - go up 2 directories (to k8s/) and enter base/ directory.
+					
+resources:				# added
+  - grafana-depl.yaml			# added
+
+patch: |-				# inline patch type
+      - op: replace			# set replace operation
+	path: /spec/replicas		# specify path to replicas field
+	value: 2			# set replicas to 2
+-----------------------------------
+
+
+
+We CAN set custom folder and file structure
+===========================================
+
+k8s/
+  base/					# shared default configurations
+    	kustomization.yaml
+  	db/				# add subfolder for specific components 
+		db-depl.yaml
+		db-service.yaml
+		kustomization.yaml
+	api/				# add subfolder for specific components
+		api-depl.yaml
+		api-service.yaml
+		kustomization.yaml
+  overlays/			
+    dev/			
+	kustomization.yaml
+	db/				# add subfolder for specific components
+		db-patch.yaml
+		kustomization.yaml
+	api/				# add subfolder for specific components
+		api-patch.yaml
+		kustomization.yaml
+    prod/			
+	kustomization.yaml
+	db/				# add subfolder for specific components
+		db-patch.yaml
+		kustomization.yaml
+	api/				# add subfolder for specific components
+		api-patch.yaml
+		kustomization.yaml
+
+
+
+
+============================
+Section 11 190. Lab Overlays
+============================
+
+1. Kustomize has the concepts of bases and overlays.
+----------------------------------------------------
+In this lab we will explore and understand how to work with these features of Kustomize.
+
+Explore folder and file structure
+
+- click 'Ok' button
+
+
+
+
+2. In /root/code/k8s , we have already created the base and overlays directories with various kubernetes object files.
+----------------------------------------------------------------------------------------------------------------------
+Please inspect the directories and files and answer the following questions
+
+Inspect the files and folders
+
+- click 'Ok' button
+
+
+
+
+
+3. When deploying application to prod environment, what type of image will be used for the api-deployment?
+----------------------------------------------------------------------------------------------------------
+
+
+We have dev/api-patch.yaml file
+-------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment			# target object
+spec:
+  template:
+    spec:
+      containers:
+        - name: api
+          image: memcached		# this is the image
+-------------------------------------
+
+- choose 'memcached' as answer
+
+
+
+
+
+4. How many replicas for api-deployment will get deployed in prod?
+------------------------------------------------------------------
+
+No replicas are specified in 
+	- base/kustomization.yaml
+	- overlays/prod/api-patch.yaml
+	- overlays/prod/kustomization.yaml
+
+Only configured replicas are in base/api-deployment.yaml
+
+We have base/api-deployment.yaml
+--------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  replicas: 2			# 2 replicas only
+  selector:
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:
+        component: api
+    spec:
+      containers:
+        - name: api
+          image: nginx
+          env:
+            - name: DB_CONNECTION
+              value: db.kodekloud.com
+--------------------------------------
+
+- choose '2' as answer
+
+
+
+
+
+
+5. What will be the value of the environment variable MONGO_INITDB_ROOT_PASSWORD in the mongo-deployment container in the staging environment?
+---------------------------------------------------------------------------------------------------------
+
+
+Shared resources are in base/ directory
+
+mongo-depl.yaml
+---------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: mongo
+  template:
+    metadata:
+      labels:
+        component: mongo
+    spec:
+      containers:
+        - name: mongo
+          image: mongo
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: db-creds			
+                  key: username
+            - name: MONGO_INITDB_ROOT_PASSWORD		# this is the variable we are looking for
+              valueFrom:
+                configMapKeyRef:
+                  name: db-creds			# name of the configmap object
+                  key: password
+---------------------------------------
+
+
+We have specific configurations in the overlays/staging folder for staging environment
+
+overlays/staging/kustomization.yaml
+---------------------------------------
+bases:
+  - ../../base
+patches:
+  - configMap-patch.yaml			# this is the specific configuration patch file
+---------------------------------------
+
+
+overlays/staging/configMap-patch.yaml
+---------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-creds				# target configmap object name
+data:
+  username: mongo
+  password: superp@ssword123			# password we are looking for
+---------------------------------------
+
+- choose 'superp@ssword123' as asnwer
+
+
+
+
+6. When deploying to prod how many total pods are created?
+----------------------------------------------------------
+
+We have overlay/prod/kustomization.yaml
+-------------------------------------------
+bases:
+  - ../../base				# check all shared resources
+
+resources:
+  - redis-depl.yaml			# check local redis-depl.yaml file
+
+patches:
+  - api-patch.yaml			# check in the patch if different count of replicas are configured
+-------------------------------------------
+
+
+shared resources in base/ folder
+================================
+
+We have base/api-deployment.yaml
+-------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  replicas: 2					# 2 replicas/pods
+  selector:
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:
+        component: api
+    spec:
+      containers:
+        - name: api
+          image: nginx
+          env:
+            - name: DB_CONNECTION
+              value: db.kodekloud.com
+-------------------------------------------
+
+
+
+overlays/prod resources
+=======================
+
+
+We have overlay/prod/api-patch.yaml
+-------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  template:
+    spec:
+      containers:				# 1 additional container/pod is added
+        - name: api
+          image: memcached
+-------------------------------------------
+
+
+We have overlay/prod/redis-depl.yaml
+-------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-deployment
+spec:
+  replicas: 2				# 2 replicas/pods for redis
+  selector:
+    matchLabels:
+      component: redis
+  template:
+    metadata:
+      labels:
+        component: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis
+-------------------------------------------
+
+
+- choose '5' as answer
+
+
+
+
+
+
+7. How many environment variables are set on the nginx container in the api-deployment in dev environment?
+----------------------------------------------------------------------------------------------------------
+
+We have overlays/dev/kustomization.yaml
+----------------------------------------------------
+bases:
+  - ../../base				# check shared resources
+
+patches:
+  - api-patch.yaml			# check api-patch configurations
+----------------------------------------------------
+
+
+shared resources in base/ folder
+================================
+
+We have base/api-deployment.yaml
+-------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  replicas: 2					
+  selector:
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:
+        component: api
+    spec:
+      containers:
+        - name: api
+          image: nginx				
+          env:
+            - name: DB_CONNECTION		# 1 env
+              value: db.kodekloud.com
+-------------------------------------------
+
+
+specific configurations in overlays/dev folder
+==============================================
+
+overlays/dev/api-patch.yaml
+-------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  replicas: 2					
+  selector:
+    matchLabels:
+      component: api
+  template:
+    metadata:
+      labels:
+        component: api
+    spec:
+      containers:
+        - name: api
+          image: nginx
+          env:
+            - name: DB_USERNAME		# 1 more env
+              valueFrom:
+                configMapKeyRef:
+                  name: db-creds
+                  key: username
+            - name: DB_PASSWORD		# 1 more nev
+              valueFrom:
+                configMapKeyRef:
+                  name: db-creds
+                  key: password
+-------------------------------------------
+
+- choose '3' as answer
+
+
+
+
+
+
+8. Update the api image in the api-deployment to use caddy docker image in the QA environment.
+----------------------------------------------------------------------------------------------
+Perform this using an inline JSON6902 patch.
+
+Note: Please ensure to apply the updated config for QA environment before validation.
+
+edit overlays/QA/kustomization.yaml
+------------------------------------------------
+bases:
+  - ../../base
+
+commonLabels:
+  environment: QA
+
+patches:				# added
+  - target:
+      kind: Deployment
+      name: api-deployment
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: caddy		
+------------------------------------------------
+save changes: ctrl + s
+
+Build the configs
+	terminal --> kubectl apply -k /root/code/k8s/overlays/QA
+
+- click 'Check' button
+
+
+
+
+
+
+9. A mysql database needs to be added only in the staging environment.
+----------------------------------------------------------------------
+Create a mysql deployment in a file called mysql-depl.yaml and define the deployment name as mysql-deployment.
+
+Deploy 1 replica of the mysql container using mysql image and set the following env variables:
+
+- name: MYSQL_ROOT_PASSWORD
+  value: mypassword
+
+NOTE: Please ensure to deploy the changes committed in the staging environment before validation.
+
+
+create overlays/staging/mysql-depl.yaml
+------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: mysql
+  template:
+    metadata:
+      labels:
+        component: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: mypassword
+------------------------------------------------
+save changes: ctrl + s
+
+edit overlays/staging/kustomization.yaml
+------------------------------------------------
+bases:
+  - ../../base
+
+commonLabels:
+  environment: staging
+
+resources:				# add the resource locally in staging env
+  - mysql-depl.yaml
+------------------------------------------------
+save changes: ctrl + s
+
+Apply changes
+	terminal --> kubectl apply -k /root/code/k8s/overlays/staging
+
+- click 'Check' button
+
+
+
+
+==========================
+Section 11 191. Components
+==========================
+
+We will look over Kustomize feature called Components. Components are reusable black of Kubernetes configs.
+
+Components are reusable block of Kubernetes configs - All resources for specific feature: Patches, ConfigMaps, Secrets adn any other Kubernetes related configs associated with the feature are going onto a Component and we can enable it in multiple overlays. Components are scalable solution to add features in specific (multiple) overlays without editing all kustomizations in the overlays!
+
+- Component provide the ability to define reusable pieces of configuration logic (resources + patches) that can be included in multiple ovelays
+
+- Components are useful in situations where applications support multiple optional features that need to be enabled only in a subset of overlays
+
+
+
+Example
+=======
+
+							/		# base directory
+							|
+		----------------------------------------|
+		|					|
+	       base			---------------------------------
+					|		|		|
+				       dev	     Premiun	   Self hosted
+
+
+We need 'caching' feature to be implemented in
+	- Premium
+	- Self Hosted
+
+We need to implement 'External DB' feature in
+	- dev
+	- Premium
+
+We can add caching efatures in both directories (Premium and Self hosted) and they will work just fine, but if we want to change something we need NOT to forget to change file configs in both directories. To solve that issue we create 'caching' component and deploy it in the invironment we want to use it.
+
+folder structure
+----------------
+
+k8s/
+  base/							# shared resources folder
+		kustomization.yaml
+		api-depl.yaml
+  Components/						# folder for components
+	caching/						# caching feature
+		kustomization.yaml
+		deployment-patch.yaml	
+		redis-depl.yaml
+	db/							# external db feature
+		kustomization.yaml
+		deployment-patch.yaml	
+		postgres-depl.yaml
+  overlays/						# Overlays folder
+  	dev/							# add external db
+		kustomization.yaml
+  	Premium/						# add caching and external db
+		kustomization.yaml
+  	SelfHosted/						# add caching
+		kustomization.yaml
+
+
+
+
+Files in Components/db/ folder
+==============================
+
+k8s/components/db/postgres-depl.yaml			# standard deployment definition file
+----------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: postgres
+  template:
+    metadata:
+      labels:
+	component: postgres
+    spec:
+      containers:
+	- name: postgres
+	  image: postgres
+----------------------------------------------
+
+
+k8s/components/db/kustomization.yaml			# component definition file
+----------------------------------------------
+apiVErsion: kustomize.config.k8s.io/v1alpha1		# specific apiVersion
+kind: Component						# specific kind
+
+resources:
+  - postgres-depl.yaml
+
+secretGenerator:					# save secret for the password to access the db
+  - name: postgres-cred
+    literals:
+      - password=postgres123
+
+patches:
+  - deployment-patch.yaml
+----------------------------------------------
+
+
+k8s/components/db/deployemnt-patch.yaml		# strategic merge patch to set specific aparameters for the specific env
+----------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  template:
+    spec:
+      containers:
+        - name: api
+	  env:
+	    - name: DB_PASSWORD
+	      valueFrom:
+		secretKeyRef:
+		  name: postgres-cred
+		  key: password
+----------------------------------------------
+
+
+Import external db feature
+--------------------------
+
+k8s/overlays/dev/kustomization.yaml			# dev overlay kustomization file for external db feature
+----------------------------------------------
+bases:							# set path to shared resources
+  - ../../base
+
+components:						# set path to components folder
+  - ../../components/db				
+----------------------------------------------
+
+
+
+
+==============================
+Section 11 192. Lab Components
+==============================
+
+1. What components are enabled in the community overlay?
+--------------------------------------------------------
+
+We have code/project_mercury/overlays/community/kustomization.yaml
+--------------------------------
+bases:
+  - ../../base
+
+components:
+  - ../../components/auth		# this is the connected component
+--------------------------------
+
+- choose 'auth' as answer
+
+
+
+
+2. What components are enabled in the dev overlay?
+--------------------------------------------------
+
+We have code/project_mercury/overlays/dev/kustomization.yaml
+--------------------------------
+bases:
+  - ../../base
+
+components:				# this components are connected
+  - ../../components/auth
+  - ../../components/db
+  - ../../components/logging
+--------------------------------
+
+- choose 'auth, db, logging' as answer
+
+
+
+3. How many environment variables does the db component add to the api-deployment?
+----------------------------------------------------------------------------------
+
+
+We have code/project_mercury/components/db/kustomization.yaml
+--------------------------------
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - db-deployment.yaml
+  - db-service.yaml
+
+secretGenerator:
+  - name: db-creds
+    literals:
+      - password=password1
+
+patches:
+  - api-patch.yaml			# we need to check -api-patch.yaml file
+--------------------------------
+
+We have code/project_mercury/components/db/api-patch.yaml
+--------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  template:
+    spec:
+      containers:
+        - name: api
+          env:
+            - name: DB_CONNECTION		# first env var
+              value: postgres-service
+            - name: DB_PASSWORD			# second env var
+              valueFrom:
+                secretKeyRef:
+                  name: db-creds
+                  key: password
+--------------------------------
+
+- choose '2' as answer
+
+
+
+
+4. What is the name of the secret generator created in the db component?
+------------------------------------------------------------------------
+
+We have code/project_mercury/components/db/kustomization.yaml
+--------------------------------
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - db-deployment.yaml
+  - db-service.yaml
+
+secretGenerator:			
+  - name: db-creds			# this is the name of the secret generator
+    literals:
+      - password=password1
+
+patches:
+  - api-patch.yaml			
+--------------------------------
+
+- choose 'db-creds' as answer
+
+
+
+
+5. The community edition of the application should now ship with the logging component.
+---------------------------------------------------------------------------------------
+Please add the logging component to the community overlay.
+
+
+We have code/project_mercury/overlays/community/kustomization.yaml
+--------------------------------
+bases:
+  - ../../base
+
+components:
+  - ../../components/auth
+  - ../../components/logging		# added
+--------------------------------
+save changes: ctrl + s
+
+- click 'Check' button
+
+
+
+
+6. A new caching component needs to be created.
+-----------------------------------------------
+There is a directory in the components directory called caching that has a deployment and service config.
+
+Finish creating the component, by creating the kustomization.yaml file and importing the redis configurations.
+
+
+create  code/project_mercury/components/caching/kustomization.yaml
+-------------------------------------
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - redis-depl.yaml
+  - redis-service.yaml
+-------------------------------------
+save changes: ctrl + s
+
+- click 'Check' button
+
+
+
+
+7. With the database setup for the caching component, the component needs to update the api-deployment configuration to add the environment variable to the container to reach the redis instance.
+-------------------------------------------------------------------------------------------
+Create a Strategic merge Patch and add the following environment variable:
+
+Name: REDIS_CONNECTION
+Value: redis-service
+
+NOTE: This patch should be defined in the caching directory as it is part of the caching functionality and it should be defined in a separate file called api-patch.yaml.
+
+
+
+create code/project_mercury/components/caching/api-patch.yaml
+-------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  template:
+    spec:
+      containers:
+        - name: api
+          env:
+            - name: REDIS_CONNECTION
+              value: redis-service
+-------------------------------------
+save changes: ctrl + s
+
+edit code/project_mercury/components/caching/kustomization.yaml
+-------------------------------------
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+resources:
+  - redis-depl.yaml
+  - redis-service.yaml
+
+patches:				# added
+  - path: api-patch.yaml
+-------------------------------------
+save changes: ctrl + s
+
+- click 'Check' button
+
+
+
+
+
+8. Finally let's add the caching component to the enterprise edition of the application.
+----------------------------------------------------------------------------------------
+
+
+set code/project_mercury/overlays/enterprise/kustomization.yaml
+--------------------------------------
+bases:
+  - ../../base
+
+components:
+  - ../../components/auth
+  - ../../components/db
+  - ../../components/caching		# added
+--------------------------------------
+save changes: ctrl + s
+
+- click 'Check' button
+
+
+
+
+
+
+
