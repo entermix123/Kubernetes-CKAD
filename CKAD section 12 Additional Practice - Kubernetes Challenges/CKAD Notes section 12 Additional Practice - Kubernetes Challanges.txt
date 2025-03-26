@@ -48,8 +48,35 @@ users:
     client-key-data: DATA+OMITTED
 --------------------------------------------------
 
-Edit the kubeconfig file
-	terminal --> k edit 
+Print the kubeconfig file
+	terminal --> cat /root/.kube/config
+
+Edit the kubeconfig file and add user and context
+	terminal --> vi /root/.kube/config
+
+----------------------------
+...
+contexts:			
+- name: developer					# added context from here
+  context:
+    cluster: kubernetes
+    user: martin					# to here
+- name: kubernetes-admin@kubernetes
+  context:
+    cluster: kubernetes
+    user: kubernetes-admin
+  name: kubernetes-admin@kubernetes
+current-context: kubernetes-admin@kubernetes
+kind: Config
+...
+- name: martin						# added user config from here
+  user:
+    client-certificate: /root/martin.crt
+    client-key: /root/martin.key			# to here
+----------------------------
+save changes: escape, :wq!, enter
+
+- click 'Check' button
 
 
 
@@ -60,6 +87,43 @@ Role:
 - 'developer-role', should have all(*) permissions for pods in development namespace
 
 
+Show create role help commmands
+	terminal --> kubectl create role -h
+
+
+Create role definition file
+	terminal --> k create role developer-role --verb=* --resource=pods,pvc,svc -n development --dry-run=client -o yaml > developer-role.yaml
+
+	# k							- common kubectl command
+	# create						- used action
+	# role							- object
+	# developer-role					- name of the object
+	# --verb=*						- specified actions that the role can do, * - all
+	# --resource=pods,pvc,svc				- specified resources the the rolecan operate on
+	# -n development					- set namespace
+	# --dry-run=client -o yaml > developer-role.yaml	- save role definition in developer-role.yaml file
+
+Create the role
+	terminal --> k apply -f developer-role.yaml
+
+	# result: role.rbac.authorization.k8s.io/developer-role created
+
+
+Verify the role creation	
+	terminal --> k describe role developer-role -n development
+
+# result:
+----------------------------------------------------------
+Name:         developer-role
+Labels:       <none>
+Annotations:  <none>
+PolicyRule:
+  Resources               Non-Resource URLs  Resource Names  Verbs
+  ---------               -----------------  --------------  -----
+  persistentvolumeclaims  []                 []              [*]
+  pods                    []                 []              [*]
+  services                []                 []              [*]
+----------------------------------------------------------
 
 
 
@@ -69,17 +133,136 @@ Role Binding:
 - create rolebinding = developer-rolebinding, role= 'developer-role', namespace = development
 - rolebinding = developer-rolebinding associated with user = 'martin'
 
+Show rolebinding create help commands
+	terminal --> k create rolebinding -h
 
-User context:
-=============
-- set context 'developer' with user = 'martin' and cluster = 'kubernetes' as the current context.
+We will use second example
+  # Create a role binding for service account monitoring:sa-dev using the admin role
+  kubectl create rolebinding admin-binding --role=admin --serviceaccount=monitoring:sa-dev
 
 
-Service:
-========
-- Service 'jekyll' uses targetPort: '4000', namespace: 'development'
-- Service 'jekyll' uses Port: '8080', namespace: 'development'
-- Service 'jekyll' uses NodePort: '30097', namespace: 'development'
+Create the rolebinding
+	terminal --> k create rolebinding developer-rolebinding --role=developer-role --user=martin -n development --dry-run=client -o yaml > rolebinding-martin.yaml
+
+	# k					- common kubectl command
+	# create				- used action
+	# rolebinding				- object
+	# dev-user-binding			- name of the object
+	# --role=developer			- specified the role for the binding
+	# --user=dev-user			- specified user for the binding
+
+
+Create the rolebinding for martin
+	terminal --> k apply -f rolebinding-martin.yaml
+
+	# result: rolebinding.rbac.authorization.k8s.io/developer-rolebinding created
+
+Verify the rolebinding creation
+	terminal --> k describe rolebinding developer-rolebinding -n development
+
+# result:
+----------------------------------------------------------
+Name:         dev-user-binding
+Labels:       <none>
+Annotations:  <none>
+Role:
+  Kind:  Role
+  Name:  developer
+Subjects:
+  Kind  Name      Namespace
+  ----  ----      ---------
+  User  dev-user  
+----------------------------------------------------------
+
+- click 'Çheck' button
+
+
+
+PVC:
+====
+- Storage Request: 1Gi
+- Access modes: ReadWriteMany
+- pvc name = jekyll-site, namespace = development
+- 'jekyll-site' PVC should be bound to the PersistentVolume called 'jekyll-site'.
+
+Kubernetes Documentation: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims
+
+Create PVC definition pvc.yaml file
+	terminal --> vi pvc.yaml
+
+pvc.yaml
+---------------------------------------------------------
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jekyll-site
+  namespace: development
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: local-storage
+  resources:
+    requests:
+      storage: 1Gi
+  volumeMode: Filesystem
+---------------------------------------------------------
+save changes: escape, :wq!, enter
+
+Create PVC
+	terminal --> k create -f pvc.yaml
+
+	# result: persistentvolumeclaim/jekyll-site created
+
+Verify creation
+	terminal --> k get pvc -n development
+
+	# result:
+	NAME          STATUS   VOLUME        CAPACITY   ACCESS MODES   STORAGECLASS    VOLUMEATTRIBUTESCLASS   AGE
+	jekyll-site   Bound    jekyll-site   1Gi        RWX            local-storage   <unset>                 6s
+
+- click 'Check' button to see if the PVC is bound to the pv
+
+
+PV:
+===
+- jekyll-site pv is already created. Inspect it before you create the pvc.
+
+List PVs
+	terminal --> k get pv
+
+# result:
+NAME          CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS    VOLUMEATTRIBUTESCLASS   REASON   AGE
+jekyll-site   1Gi        RWX            Delete           Available           local-storage   <unset>                          41m
+
+
+Kubernetes Documentation: https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes
+
+Creation example
+----------------
+Create a file for PV defintion
+	terminal --> vi pv.yaml
+
+pv.yaml
+---------------------------------------------------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-log
+spec:
+  capacity:
+    storage: 100Mi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /pv/log
+---------------------------------------------------------
+save changes - escape, :wq!, enter
+
+Create Persisten Volume
+	terminal --> k create -f pv.yaml
+
+	# result: persistentvolume/pv-log created
 
 
 POD:
@@ -95,17 +278,1182 @@ POD:
 - pod: 'jekyll' uses label 'run=jekyll'
 
 
-PVC:
-====
-- Storage Request: 1Gi
-- Access modes: ReadWriteMany
-- pvc name = jekyll-site, namespace = development
-- 'jekyll-site' PVC should be bound to the PersistentVolume called 'jekyll-site'.
+Create pod definition and save it in pod.yaml file
+	terminal --> k run jekyll --image gcr.io/kodekloud/customimage/jekyll-serve --labels="run=jekyll" -n development --dry-run=client -o yaml > pod.yaml
+
+Edit the pod definition 
+	terminal --> vi pod.yaml
+
+pod.yaml
+-----------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  name: jekyll
+  namespace: development
+  labels:
+    run: jekyll
+spec:
+  volumes:
+    - name: site
+      persistentVolumeClaim:
+        claimName: jekyll-site
+  
+  initContainers:
+    - name: copy-jekyll-site
+      image: gcr.io/kodekloud/customimage/jekyll
+      command: [ "jekyll", "new", "/site" ]
+      volumeMounts:
+        - name: site
+          mountPath: /site
+
+  containers:
+    - name: jekyll
+      image: gcr.io/kodekloud/customimage/jekyll-serve
+      volumeMounts:
+        - name: site
+          mountPath: /site
+-----------------------------------
+save changes: escape, :wq!, enter
+
+Create the pod
+	terminal --> k apply -f pod.yaml
+
+	# result: pod/jekyll created
 
 
-PV:
+
+Service:
+========
+- Service 'jekyll' uses targetPort: '4000', namespace: 'development'
+- Service 'jekyll' uses Port: '8080', namespace: 'development'
+- Service 'jekyll' uses NodePort: '30097', namespace: 'development'
+
+Show expose command help
+	terminal --> k expose -h
+
+Create service definition in svc.yaml file
+	terminal --> kubectl create service nodeport jekyll --tcp=8080:4000 -n development --node-port=30097 --dry-run=client -o yaml > svc.yaml
+
+
+Edit the service definition svc.yaml file adn add selector
+	terminal --> vi svc.yaml
+
+svc.yaml
+---------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    run: jekyll
+  name: jekyll
+  namespace: development
+spec:
+  selector:			# added selector field from here
+    run: jekyll			# to here
+  ports:
+  - name: 8080-4000
+    nodePort: 30097
+    port: 8080
+    protocol: TCP
+    targetPort: 4000
+  selector:
+    app: jekyll
+  type: NodePort
+status:
+  loadBalancer: {}
+---------------------------------
+save changes: escape, :wq!, enter
+
+Create the service
+	terminal --> k apply -f svc.yaml
+
+	# result: service/jekyll created
+
+Verify the service creation
+	terminal --> k get svc -n development
+
+	# result:
+	NAME     TYPE       CLUSTER-IP     EXTERNAL-IP   PORT(S)          AGE
+	jekyll   NodePort   172.20.71.66   <none>        8080:30097/TCP   82s
+
+
+- click 'Check' button
+
+
+User context:
+=============
+- set context 'developer' with user = 'martin' and cluster = 'kubernetes' as the current context.
+
+Set context developer
+	terminal --> kubectl config use-context developer --kubeconfig /root/.kube/config
+
+	# kubectl 				- common kubernetes command
+	# config				- config settings
+	# use-context developer			- use context
+	# --kubeconfig /root/.kube/config	- use config file
+
+	# result: Switched to context "developer".
+
+Verify the change
+	terminal --> cat /root/.kube/config
+
+#result:
+----------------------------
+...
+current-context: developer
+...
+----------------------------
+
+- click 'Check' button
+
+
+Set context kubernetes-admin@kubernetes to work with 
+	terminal --> kubectl config use-context kubernetes-admin@kubernetes --kubeconfig /root/.kube/config
+
+
+
+
+
+
+
+
+===========================
+Lab- Kubernetes Challenge 2
+===========================
+
+This 2-Node Kubernetes cluster is broken! Troubleshoot, fix the cluster issues and then deploy the objects according to the given architecture diagram to unlock our Image Gallery!!
+
+Click on each icon (including arrows) to see more details. Once done click on Check button to test your work.
+
+
+
+Master Node
+===========
+Master node: coredns deployment has image: 'registry.k8s.io/coredns/coredns:v1.8.6'
+Fix kube-apiserver. Make sure its running and healthy.
+kubeconfig = /root/.kube/config, User = 'kubernetes-admin' Cluster: Server Port = '6443'
+
+
+Print the kubeconfig file
+	terminal --> cat /root/.kube/config
+
+Edit the config and fix server port
+	terminal --> vi /root/.kube/config
+
+----------------------------
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: LS0t...
+    server: https://controlplane:6443			# set the correct server port - 6443
+  name: kubernetes
+contexts:
+- context:
+    cluster: kubernetes
+    user: kubernetes-admin
+  name: kubernetes-admin@kubernetes
+current-context: kubernetes-admin@kubernetes		# correct context
+kind: Config
+preferences: {}
+users:
+- name: kubernetes-admin				# correct user
+  user:
+    client-certificate-data: LS0t...
+----------------------------
+save changes: escape, :wq!, enter
+
+Wait few minutes for the server to restart
+
+List logs for controlplane
+	terminal --> sudo journalctl -u kubelet -n 100
+
+List contrilplane components manifests files
+	terminal --> ls /etc/kubernetes/manifests
+	
+	# result: etcd.yaml  kube-apiserver.yaml  kube-controller-manager.yaml  kube-scheduler.yaml
+
+
+Print kubeapi-server manifest file
+	terminal --> cat /etc/kubernetes/manifests/kube-apiserver.yaml
+
+Edit the manifests file and fix the image and --client-ca-file=/etc/kubernetes/pki/ca.crt
+	terminal --> vi /etc/kubernetes/manifests/kube-apiserver.yaml
+
+kube-apiserver.yaml
+--------------------------------------------------------
+...
+  containers:
+  - command:
+    - kube-apiserver
+    - --advertise-address=192.168.239.11
+    - --allow-privileged=true
+    - --authorization-mode=Node,RBAC
+    - --client-ca-file=/etc/kubernetes/pki/ca.crt			# set file to ca.crt
+    - --enable-admission-plugins=NodeRestriction
+...
+--------------------------------------------------------
+save changes: escape, :wq!, enter
+
+Restart the kubelet
+	terminal --> systemctl restart kubelet
+
+List deployments
+	terminal --> k get deploy -A
+	
+	# result:
+	NAMESPACE     NAME      READY   UP-TO-DATE   AVAILABLE   AGE
+	kube-system   coredns   0/2     2            0           3m24s
+
+Edit the deployment and change the used image
+	terminal --> k edit deploy coredns -n kube-system
+
+---------------------------------------
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2022-05-17T05:37:09Z"
+      creationTimestamp: null
+      labels:
+        k8s-app: kube-dns
+    spec:
+      containers:
+      - args:
+        - -conf
+        - /etc/coredns/Corefile
+        image: registry.k8s.io/coredns/coredns:v1.8.6			# edited
+        imagePullPolicy: IfNotPresent
+---------------------------------------
+save changes: escape, :wq!, enter
+
+# result: deployment.apps/coredns edited
+
+
+Test the master node
+	terminal --> k get ndoes
+	
+	# result:
+	NAME           STATUS                     ROLES           AGE   VERSION
+	controlplane   Ready                      control-plane   39m   v1.30.0
+	node01         Ready,SchedulingDisabled   <none>          38m   v1.30.0
+
+- click 'Çheck' button
+
+
+
+Node01
+======
+node01 is ready and can schedule pods?
+
+List nodes
+	terminal --> k get ndoes
+	
+	# result:
+	NAME           STATUS                     ROLES           AGE   VERSION
+	controlplane   Ready                      control-plane   39m   v1.30.0
+	node01         Ready,SchedulingDisabled   <none>          38m   v1.30.0
+
+Uncordon node01
+	terminal --> k uncordon node01
+
+	# result: node/node01 uncordoned
+
+- click 'Çheck' button
+
+
+
+Images
+======
+Copy all images from the directory '/media' on the controlplane node to '/web' directory on node01
+
+Copy images and set them on node01
+	terminal --> scp /media/* node01:/web
+
+	# result:
+	kodekloud-ckad.png                                                                                                                                                                                                                  
+	kodekloud-cka.png                                                                                                                                                                                                                    
+	kodekloud-cks.png  
+
+- click 'Çheck' button
+
+
+PV
+==
+Create new PersistentVolume = 'data-pv'
+PersistentVolume = data-pv, accessModes = 'ReadWriteMany'
+PersistentVolume = data-pv, hostPath = '/web'
+PersistentVolume = data-pv, storage = '1Gi'
+
+
+Check PV template in Kubernetes docuemtntation
+	- https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistent-volumes
+
+Create definition file for PV
+	terminal --> vi pv.yaml
+
+pv.yaml
+------------------------------------
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+    name: data-pv
+spec:
+   accessModes: 
+     - ReadWriteMany
+   capacity:
+    storage: 1Gi
+   hostPath:
+      path: /web
+      type: DirectoryOrCreate
+------------------------------------
+save changes: escape, :wq!, enter
+
+Create the PV
+	terminal --> k apply -f pv.yaml
+
+	# result: persistentvolume/data-pv created
+
+- click 'Check' button
+
+
+PVC
 ===
-- jekyll-site pv is already created. Inspect it before you create the pvc.
+Create new PersistentVolumeClaim = 'data-pvc'
+PersistentVolume = 'data-pvc', accessModes = 'ReadWriteMany'
+PersistentVolume = 'data-pvc', storage request = '1Gi'
+PersistentVolume = 'data-pvc', volumeName = 'data-pv'
+
+
+
+Create PVC definition file
+	terminal --> pvc.yaml
+
+------------------------------------
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+    name: data-pvc
+spec:
+   accessModes:
+     - ReadWriteMany
+   resources:
+    requests:
+       storage: 1Gi
+   volumeName: data-pv
+------------------------------------
+save changes: escape, :wq!, enter
+
+
+Create the PVC
+	terminal --> k apply -f pvc.yaml
+
+	# result: persistentvolumeclaim/data-pvc created
+
+
+- click 'Check' button
+
+
+Pod
+===
+Create a pod for file server, name: 'gop-file-server'
+pod: gop-file-server image: 'kodekloud/fileserver'
+pod: gop-file-server mountPath: '/web'
+pod: gop-file-server volumeMount name: 'data-store'
+pod: gop-file-server persistent volume name: data-store
+pod: gop-file-server persistent volume claim used: 'data-pvc'
+
+
+Create pod definition pod.yaml file
+	terminal --> kubectl run gop-file-server --image=kodekloud/fileserver --dry-run=client -o yaml > pod.yaml
+
+Edit the definition file and add volumes, pvc and volumeMount sections
+	terminal --> vi pod.yaml
+
+pod.yaml
+------------------------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: gop-file-server
+  name: gop-file-server
+spec:
+  volumes:				# added volumes section with pvc claim from here
+  - name: data-store
+    persistentVolumeClaim:
+      claimName: data-pvc		# to here
+  containers:
+  - image: kodekloud/fileserver
+    imagePullPolicy: IfNotPresent
+    name: gop-file-server
+    volumeMounts:			# added volumeMounts section from here
+       - name: data-store
+         mountPath: /web		# to here
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+------------------------------------
+save changes: escape, :wq!, enter
+
+Create the pod
+	terminal --> k apply -f pod.yaml
+
+	# result: pod/gop-file-server created
+
+- click 'Check' button
+
+
+Service
+=======
+New Service, name: 'gop-fs-service'
+Service name: gop-fs-service, port: '8080'
+Service name: gop-fs-service, targetPort: '8080'
+
+
+Show create service help commands
+	terminal --> k create service -h
+
+Create service definition in svc.yaml file
+	terminal --> kubectl create service nodeport gop-fs-service --tcp=8080:8080 --node-port=31200 --dry-run=client -o yaml > svc.yaml
+
+
+Print svc.yaml file
+	terminal --> cat svc.yaml
+
+svc.yaml
+---------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: gop-fs-service
+  name: gop-fs-service
+spec:
+  ports:
+  - name: 8080-8080
+    nodePort: 31200
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: gop-fs-service
+  type: NodePort
+status:
+  loadBalancer: {}
+---------------------------------
+
+
+Create the service
+	terminal --> k apply -f svc.yaml
+
+	# result: service/gop-fs-service created
+
+Verify the service creation
+	terminal --> k get svc
+
+	# result:
+	NAME             TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
+	gop-fs-service   NodePort    172.20.251.229   <none>        8080:31200/TCP   14s
+	kubernetes       ClusterIP   172.20.0.1       <none>        443/TCP          70m
+
+
+- click 'Check' button
+
+
+
+
+
+===========================
+Lab- Kubernetes Challenge 3
+===========================
+
+
+Namespace
+=========
+Create a new namespace: name = 'vote'
+
+Create vote namespace
+	terminal --> k create ns vote
+
+	# result: namespace/vote created
+
+List namespaces to verify vote ns creation
+	terminal --> k get ns
+
+	# result:
+	NAME              STATUS   AGE
+	default           Active   34m
+	kube-flannel      Active   34m
+	kube-node-lease   Active   34m
+	kube-public       Active   34m
+	kube-system       Active   34m
+	vote              Active   14s		# craeted
+
+
+Voting Deployment
+=================
+Create a deployment: name = 'vote-deployment'
+image = 'kodekloud/examplevotingapp_vote:before'
+status: 'Running'
+
+
+Create deployment definition file vote-deploy.yaml
+	termimnal --> k create deploy vote-deployment --image=kodekloud/examplevotingapp_vote:before --dry-run=client -n vote -o yaml > vote-deploy.yaml
+
+Print vote-deploy.yaml definition file
+	terminal --> cat vote-deploy.yaml
+
+vote-deploy.yaml
+------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: vote-deployment
+  name: vote-deployment
+  namespace: vote
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vote-deployment
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: vote-deployment
+    spec:
+      containers:
+      - image: kodekloud/examplevotingapp_vote:before
+        name: examplevotingapp-vote-pd64z
+        resources: {}
+status: {}
+------------------------------------------------
+
+Create the deployment
+	terminal --> k apply -f vote-deploy.yaml
+
+	# result: deployment.apps/vote-deployment created
+
+- click 'Check' button
+
+
+
+Voting Service
+==============
+Create a new service: name = vote-service
+port = '5000'
+targetPort = '80'
+nodePort= '31000'
+service endpoint exposes deployment 'vote-deployment'
+
+We have to options
+	Option 1: Use 'kubectl create service nodeport' command and add selector for target deploymnet
+	Option 2: Use 'kubectl expose deploy' command and specify the nodeport
+
+Option 1
+--------
+
+Show help commands
+	terminal --> k create service nodeport -h
+
+Create service for vote-deployment deplyment
+	termial --> kubectl create service nodeport vote-service --tcp=5000:80 --node-port=31000 -n vote --dry-run=client -o yaml > vote-svc1.yaml
+
+Edit the definition file and set selector
+	terminal --> vi vote-svc1.yaml
+
+vote-svc.yaml
+------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: vote-service
+  name: vote-service
+  namespace: vote
+spec:
+  ports:
+  - name: 5000-80
+    nodePort: 31000
+    port: 5000
+    protocol: TCP
+    targetPort: 80
+  selector:					
+    app: vote-deployment			# set the deployment we expose
+  type: NodePort
+status:
+  loadBalancer: {}
+------------------------------------------------
+save changes: escape, :wq!, enter
+
+Create the deployment service with vote-svc1.yaml
+	terminal --> k apply -f vote-svc1.yaml
+
+	# result: service/vote-service created
+
+
+
+Option 2
+--------
+
+Show expose help commands
+	terminal --> k expose deploy -h
+
+Create service definition file
+	terminal --> k expose deploy vote-deployment --name=vote-service --port=5000 --target-port=80 --type=NodePort --protocol=TCP -n vote --dry-run=client -o yaml > vote-svc2.yaml
+
+
+Edit the definition file and sepcify nodeport
+	terminal --> vi vote-svc2.yaml
+
+vote-svc2.yaml
+------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: vote-deployment
+  name: vote-service
+  namespace: vote
+spec:
+  ports:
+  - port: 5000
+    protocol: tcp
+    targetPort: 80
+    nodePort: 31000
+  selector:
+    app: vote-deployment
+  type: NodePort
+status:
+  loadBalancer: {}
+------------------------------------------------
+save changes: escape, :wq!, enter
+
+
+Create the deployment service with vote-svc2.yaml file
+	terminal --> k apply -f vote-svc2.yaml
+
+	# result: service/vote-service created
+
+
+
+Redis deployment
+================
+Create new deployment, name: 'redis-deployment'
+image: 'redis:alpine'
+Volume Type: 'EmptyDir'
+Volume Name: 'redis-data'
+mountPath: '/data'
+status: 'Running'
+
+
+Show create deployment help commands
+	terminal --> k create deploy -h
+
+Create deployment definition redis-deploy.yaml file
+	terminal --> k create deploy redis-deployment --image=redis:alpine -n vote --dry-run=client -o yaml > redis-deploy.yaml
+
+Edit the definition file and add volumes and volumeMoutns sections
+	terminal --> vi redis-deploy.yaml
+
+redis-deploy.yaml
+------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: redis-deployment
+  name: redis-deployment
+  namespace: vote
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-deployment
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: redis-deployment
+    spec:
+      containers:
+      - image: redis:alpine
+        name: redis
+        volumeMounts:				# added volumeMounts section from here
+        - name: redis-data
+          mountPath: /data			# to here
+      volumes:					# added volume section from here
+      - name: redis-data		
+        emptyDir: {}				# to here
+------------------------------------------------
+save changes: escape, :wq!, enter
+
+Create the deployment
+	terminal --> k apply -f redis-deploy.yaml
+
+	# result: deployment.apps/redis-deployment created
+
+
+
+
+Redis service
+=============
+New Service, name = 'redis'
+port: '6379'
+targetPort: '6379'
+type: 'ClusterIP'
+service endpoint exposes deployment 'redis-deployment'
+
+
+Task approach
+	Option 1: Use 'service create service clusterip' command and add selector to specify the target deployment
+	Option 2: Use 'service expose' command 
+
+
+Option 1
+--------
+
+Show create service help commands
+	terminal --> k create service clusterip -h
+
+Create servicedefinition redis-svc.yaml file
+	terminal --> kubectl create service clusterip redis --tcp=6379:6379 -n vote --dry-run=client -o yaml > redis-svc1.yaml
+
+Edit the definition file and set selector for target deployment
+	terminal --> vi redis-svc1.yaml
+
+redis-svc.yaml
+------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: redis
+  name: redis
+  namespace: vote
+spec:
+  ports:
+  - name: 6379-6379
+    port: 6379
+    protocol: TCP
+    targetPort: 6379
+  selector:
+    app: redis-deployment			# set redis deployment name
+  type: ClusterIP
+status:
+  loadBalancer: {}
+------------------------------------------------
+save changes: escape, :wq!, enter
+
+Create the service with redis-svc1.yaml
+	terminal --> k apply -f redis-svc1.yaml
+
+	# result: service/redis created
+
+
+
+Option 2
+--------
+
+Show create service help commands
+	terminal --> k expose deploy -h
+
+Create servicedefinition redis-svc.yaml file
+	terminal --> k expose deploy redis-deployment -n vote --name=redis --port=6379 --target-port=6379 --type=ClusterIP --protocol=TCP -n vote --dry-run=client -o yaml > redis-svc2.yaml
+
+Print the definition redis-svc2.yaml file 
+	terminal --> cat redis-svc2.yaml
+
+redis-svc.yaml
+------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: redis-deployment
+  name: redis
+  namespace: vote
+spec:
+  ports:
+  - port: 6379
+    protocol: TCP
+    targetPort: 6379
+  selector:
+    app: redis-deployment
+  type: ClusterIP
+status:
+  loadBalancer: {}
+------------------------------------------------
+
+Create the service with redis-svc2.yaml file
+	terminal --> k apply -f redis-svc2.yaml
+
+	# result: service/redis created
+
+
+
+Worker deployment
+=================
+Create new deployment. name: 'worker'
+image: 'kodekloud/examplevotingapp_worker'
+status: 'Running'
+
+Show create deployment help commands
+	terminal --> k create deploy -h
+
+Create deployment definition file
+	terminal --> k create deploy worker --image=kodekloud/examplevotingapp_worker -n vote --dry-run=client -o yaml > worker-deploy.yaml
+
+Print tdefinition file
+	terminal --> cat worker-deploy.yaml
+
+worker-deploy.yaml
+------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: worker
+  name: worker
+  namespace: vote
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: worker
+    spec:
+      containers:
+      - image: kodekloud/examplevotingapp_worker
+        name: examplevotingapp-worker-gnl48
+        resources: {}
+status: {}
+------------------------------------------------
+
+Create worker deployment
+	terminal --> k apply -f worker-deploy.yaml
+
+	# result: deployment.apps/worker created
+
+
+db deployment
+=============
+Create new deployment. name: 'db-deployment'
+image: 'postgres:9.4' and add the env: 'POSTGRES_HOST_AUTH_METHOD=trust'
+Volume Type: 'EmptyDir'
+Volume Name: 'db-data'
+mountPath: '/var/lib/postgresql/data'
+status: 'Running'
+
+Show create deployment help commands
+	terminal --> k create deploy -h
+
+Create deployment definition file
+	terminal --> k create deploy db-deployment --image=postgres:9.4 -n vote --dry-run=client -o yaml > db-deploy.yaml
+
+Edit tdefinition file
+	terminal --> vi db-deploy.yaml
+
+worker-deploy.yaml
+------------------------------------------------
+metadata:
+  creationTimestamp: null
+  labels:
+    app: db-deployment
+  name: db-deployment
+  namespace: vote
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db-deployment
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: db-deployment
+    spec:
+      containers:
+      - image: postgres:9.4
+        name: postgres
+        env:					# added env section from here
+        - name: POSTGRES_HOST_AUTH_METHOD	
+          value: trust				# to here
+        volumeMounts:				# added volumeMounts section from here
+        - name: db-data
+          mountPath: /var/lib/postgresql/data	# to here
+      volumes:					# added volume section from here
+      - name: db-data
+        emptyDir: {}				# to here
+------------------------------------------------
+save changes: escape, :wq!, enter
+
+Create db deployment
+	terminal --> k apply -f db-deploy.yaml
+
+	# result: deployment.apps/db-deployment created
+
+
+
+db service
+==========
+Create new service: 'db'
+port: '5432'
+targetPort: '5432'
+type: 'ClusterIP'
+
+Task approach
+	Option 1: Use 'service create service clusterip' command and add selector to specify the target deployment
+	Option 2: Use 'service expose' command 
+
+
+Option 1
+--------
+
+Show create service help commands
+	terminal --> k create service clusterip -h
+
+Create servicedefinition redis-svc.yaml file
+	terminal --> kubectl create service clusterip db --tcp=5432:5432 -n vote --dry-run=client -o yaml > db-svc1.yaml
+
+Edit the definition file and set selector for target deployment
+	terminal --> vi db-svc1.yaml
+
+db-svc1.yaml
+------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: db
+  name: db
+  namespace: vote
+spec:
+  ports:
+  - name: 5432-5432
+    port: 5432
+    protocol: TCP
+    targetPort: 5432
+  selector:
+    app: db-deployment			# set db deployment name
+  type: ClusterIP
+status:
+  loadBalancer: {}
+------------------------------------------------
+save changes: escape, :wq!, enter
+
+Create the service with redis-svc1.yaml
+	terminal --> k apply -f db-svc1.yaml
+
+	# result: service/db created
+
+
+
+Option 2
+--------
+
+Show create service help commands
+	terminal --> k expose deploy -h
+
+Create servicedefinition redis-svc.yaml file
+	terminal --> k expose deploy db-deployment -n vote --name=db --port=5432 --target-port=5432 --type=ClusterIP --protocol=TCP -n vote --dry-run=client -o yaml > db-svc2.yaml
+
+Print the definition db-svc2.yaml file 
+	terminal --> cat db-svc2.yaml
+
+db-svc2.yaml
+------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: db-deployment
+  name: db
+  namespace: vote
+spec:
+  ports:
+  - port: 5432
+    protocol: TCP
+    targetPort: 5432
+  selector:
+    app: db-deployment
+  type: ClusterIP
+status:
+  loadBalancer: {}
+------------------------------------------------
+
+Create the service with db-svc2.yaml file
+	terminal --> k apply -f db-svc2.yaml
+
+	# result: service/db created
+
+
+result deployment
+=================
+Create new deployment, name: 'result-deployment'
+image: 'kodekloud/examplevotingapp_result:before'
+status: 'Running'
+
+Show create deployment help commands
+	terminal --> k create deploy -h
+
+Create deployment definition file
+	terminal --> k create deploy result-deployment --image=kodekloud/examplevotingapp_result:before -n vote --dry-run=client -o yaml > result-deploy.yaml
+
+Print tdefinition file
+	terminal --> cat result-deploy.yaml
+
+result-deploy.yaml
+------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: result-deployment
+  name: result-deployment
+  namespace: vote
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: result-deployment
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: result-deployment
+    spec:
+      containers:
+      - image: kodekloud/examplevotingapp_result:before
+        name: examplevotingapp-result-6dcsx
+        resources: {}
+status: {}
+------------------------------------------------
+
+Create worker deployment
+	terminal --> k apply -f result-deploy.yaml
+
+	# result: deployment.apps/result-deployment created
+
+
+
+result service
+==============
+port: '5001'
+targetPort: '80'
+NodePort: '31001'
+
+We have to options
+	Option 1: Use 'kubectl create service nodeport' command and add selector for target deploymnet
+	Option 2: Use 'kubectl expose deploy' command and specify the nodeport
+
+Option 1
+--------
+
+Show help commands
+	terminal --> k create service nodeport -h
+
+Create service for vote-deployment deplyment
+	termial --> kubectl create service nodeport result-service --tcp=5001:80 --node-port=31001 -n vote --dry-run=client -o yaml > result-svc1.yaml
+
+Edit the definition file and set selector
+	terminal --> vi result-svc1.yaml
+
+result-svc1.yaml
+------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: result-service
+  name: result-service
+  namespace: vote
+spec:
+  ports:
+  - name: 5001-80
+    nodePort: 31001
+    port: 5001
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: result-deployment			# set target deployment
+  type: NodePort
+status:
+  loadBalancer: {}
+------------------------------------------------
+save changes: escape, :wq!, enter
+
+Create the deployment service with result-svc1.yaml
+	terminal --> k apply -f result-svc1.yaml
+
+	# result: service/result-service created
+
+
+
+Option 2
+--------
+
+Show expose help commands
+	terminal --> k expose deploy -h
+
+Create service definition file
+	terminal --> k expose deploy result-deployment --name=result-service --port=5001 --target-port=80 --type=NodePort --protocol=TCP -n vote --dry-run=client -o yaml > result-svc2.yaml
+
+
+Edit the definition file and sepcify nodeport
+	terminal --> vi result-svc2.yaml
+
+result-svc2.yaml
+------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: result-deployment
+  name: result-service
+  namespace: vote
+spec:
+  ports:
+  - port: 5001
+    protocol: TCP
+    targetPort: 80
+    nodePort: 31001			# added nodePort: 31001
+  selector:
+    app: result-deployment
+  type: NodePort
+status:
+  loadBalancer: {}
+------------------------------------------------
+save changes: escape, :wq!, enter
+
+
+Create the deployment service withresult-svc2.yaml file
+	terminal --> k apply -f result-svc2.yaml
+
+	# result: service/result-service created
 
 
 
@@ -113,16 +1461,409 @@ PV:
 
 
 
+===========================
+Lab- Kubernetes Challenge 4
+===========================
+
+
+Create PV directories on node01
+===============================
+  # See https://www.cyberciti.biz/faq/unix-linux-execute-command-using-ssh/
+  	terminal --> ssh node01 'for i in $(seq 1 6) ; do mkdir "/redis0$i" ; done'
+
+Redis Cluster ConfigMap
+=======================
+ConfigMap: redis-cluster-configmap is already created. Inspect it…
+
+List configmaps
+	terminal --> k get cm
+
+	# result:
+	NAME                      DATA   AGE
+	kube-root-ca.crt          1      60m
+	redis-cluster-configmap   2      3m26s
+
+
+Redis PV1
+=========
+PersistentVolume - Name: redis01
+Access modes: ReadWriteOnce
+Size: 1Gi
+hostPath: /redis01, directory should be created on worker node
+
+Create Persisten Volume definition file
+	terminal --> vi pv1.yaml
+
+pv1.yaml
+------------------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: redis01
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /redis01
+------------------------
+save changes: escape, :wq!, enter
+
+Create the PV
+	terminal --> k apply -f pv1.yaml
+
+	# result: persistentvolume/redis01 created
+
+
+Redis PV2
+=========
+PersistentVolume - Name: redis02
+Access modes: ReadWriteOnce
+Size: 1Gi
+hostPath: /redis02, directory should be created on worker node
+
+Create Persisten Volume definition file
+	terminal --> vi pv2.yaml
+
+pv2.yaml
+------------------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: redis02
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /redis02
+------------------------
+save changes: escape, :wq!, enter
+
+Create the PV
+	terminal --> k apply -f pv2.yaml
+
+	# result: persistentvolume/redis02 created
+
+Redis PV3
+=========
+PersistentVolume - Name: redis03
+Access modes: ReadWriteOnce
+Size: 1Gi
+hostPath: /redis03, directory should be created on worker node
+
+Create Persisten Volume definition file
+	terminal --> vi pv3.yaml
+
+pv3.yaml
+------------------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: redis03
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /redis03
+------------------------
+save changes: escape, :wq!, enter
+
+Create the PV
+	terminal --> k apply -f pv3.yaml
+
+	# result: persistentvolume/redis03 created
+
+
+Redis PV4
+=========
+PersistentVolume - Name: redis04
+Access modes: ReadWriteOnce
+Size: 1Gi
+hostPath: /redis04, directory should be created on worker node
+
+Create Persisten Volume definition file
+	terminal --> vi pv4.yaml
+
+pv4.yaml
+------------------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: redis04
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /redis04
+------------------------
+save changes: escape, :wq!, enter
+
+Create the PV
+	terminal --> k apply -f pv4.yaml
+
+	# result: persistentvolume/redis04 created
+
+
+Redis PV5
+=========
+PersistentVolume - Name: redis05
+Access modes: ReadWriteOnce
+Size: 1Gi
+hostPath: /redis05, directory should be created on worker node
+
+Create Persisten Volume definition file
+	terminal --> vi pv5.yaml
+
+pv5.yaml
+------------------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: redis05
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /redis05
+------------------------
+save changes: escape, :wq!, enter
+
+Create the PV
+	terminal --> k apply -f pv5.yaml
+
+	# result: persistentvolume/redis05 created
+
+
+Redis PV6
+=========
+PersistentVolume - Name: redis06
+Access modes: ReadWriteOnce
+Size: 1Gi
+hostPath: /redis06, directory should be created on worker node
+
+
+Create Persisten Volume definition file
+	terminal --> vi pv6.yaml
+
+pv6.yaml
+------------------------
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: redis06
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /redis06
+------------------------
+save changes: escape, :wq!, enter
+
+Create the PV
+	terminal --> k apply -f pv6.yaml
+
+	# result: persistentvolume/redis06 created
+
+
+Create PVs with one script
+==========================
+terminal -->
+  for i in $(seq 1 6)
+  do
+    cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: redis0$i
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /redis0$i
+EOF
+  done
 
 
 
+Redis StatefulSet
+=================
+StatefulSet - Name: redis-cluster
+Replicas: 6
+Pods status: Running (All 6 replicas)
+Image: redis:5.0.1-alpine, Label = app: redis-cluster
+container name: redis, command: ["/conf/update-node.sh", "redis-server", "/conf/redis.conf"]
+Env: name: 'POD_IP', valueFrom: 'fieldRef', fieldPath: 'status.podIP' (apiVersion: v1)
+Ports - name: 'client', containerPort: '6379'
+Ports - name: 'gossip', containerPort: '16379'
+Volume Mount - name: 'conf', mountPath: '/conf', readOnly:'false' (ConfigMap Mount)
+Volume Mount - name: 'data', mountPath: '/data', readOnly:'false' (volumeClaim)
+volumes - name: 'conf', Type: 'ConfigMap', ConfigMap Name: 'redis-cluster-configmap',
+Volumes - name: 'conf', ConfigMap Name: 'redis-cluster-configmap', defaultMode = '0755'
+volumeClaimTemplates - name: 'data'
+volumeClaimTemplates - accessModes: 'ReadWriteOnce'
+volumeClaimTemplates - Storage Request: '1Gi'
+
+
+StatefulSet has the definition file of Deployment. So we will crete deployment definition file and tranform it into statefulset definition file.
+
+Show create statefulset help commands
+	terminal --> k create deployment -h
+
+Create statefulset definition file
+	terminal --> k create deployment redis-cluster --replicas=6 --image=redis:5.0.1-alpine --dry-run=client -o yaml > redis-statefulset.yaml
+
+Edit the definition file and add the requirements
+	terminal --> vi redis-statefulset.yaml
+
+redis-statefulset.yaml
+------------------------------------------------
+apiVersion: apps/v1
+kind: StatefulSet					# change the kind to StatefulSet
+metadata:
+  name: redis-cluster
+spec:
+  serviceName: redis-cluster
+  replicas: 6
+  selector:
+    matchLabels:
+      app: redis-cluster				# remove strategy field
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: redis-cluster
+    spec:
+      containers:
+      - name: redis
+        image: redis:5.0.1-alpine
+        command: ["/conf/update-node.sh", "redis-server", "/conf/redis.conf"]	# added required command
+        env:									# added env from here
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP						# to here
+        ports:					# added ports and names from here
+        - name: client
+          containerPort: 6379
+        - name: gossip
+          containerPort: 16379			# to here
+        volumeMounts:				# added volumeMounts from here
+        - name: conf
+          mountPath: /conf
+          readOnly: false
+        - name: data
+          mountPath: /data
+          readOnly: false			# to here
+      volumes:					# added volumes section from here
+      - name: conf
+        configMap:
+          name: redis-cluster-configmap
+          defaultMode: 0755			# to here
+  volumeClaimTemplates:				# added folume claim template from here
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi				# to here
+------------------------------------------------
+save changes: escape, :wq!, enter
+
+
+Create the statefulset
+	terminal --> k apply -f redis-statefulset.yaml
+
+	# result: statefulset.apps/redis-cluster created
+
+
+Redis Cluster Service
+=====================
+Ports - service name 'redis-cluster-service', port name: 'client', port: '6379'
+Ports - service name 'redis-cluster-service', port name: 'gossip', port: '16379'
+Ports - service name 'redis-cluster-service', port name: 'client', targetPort: '6379'
+Ports - service name 'redis-cluster-service', port name: 'gossip', targetPort: '16379'
+
+
+Show create clusterip service help commands
+	terminal --> k create service clusterip -h
+
+Show create service help commands
+	terminal --> k create service clusterip -h
+
+Create servicedefinition redis-svc.yaml file
+	terminal --> kubectl create service clusterip redis-cluster-service --tcp=6379:6379 --dry-run=client -o yaml > redis-svc1.yaml
+
+Edit the definition file and additional ports and their names
+	terminal --> vi redis-svc1.yaml
+
+redis-svc1.yaml
+------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: redis-cluster-service
+  name: redis-cluster-service
+spec:
+  ports:
+  - name: client			# set name
+    port: 6379
+    protocol: TCP
+    targetPort: 6379
+  - name: gossip			# added second pair of porst and their name
+    port: 16379
+    protocol: TCP
+    targetPort: 16379
+  selector:
+    app: redis-cluster			# set the correct 
+  type: ClusterIP
+status:
+  loadBalancer: {}
+------------------------------------------------
+save changes: escape, :wq!, enter
+
+Create the service with redis-svc1.yaml
+	terminal --> k apply -f redis-svc1.yaml
+
+	# result: service/redis-cluster-service created
 
 
 
+Redis Cluster Config
+====================
+Command: kubectl exec -it redis-cluster-0 -- redis-cli --cluster create --cluster-replicas 1 $(kubectl get pods -l app=redis-cluster -o jsonpath='{range.items[*]}{.status.podIP}:6379 {end}')
 
+Execute the command
+	terminal --> kubectl exec -it redis-cluster-0 -- redis-cli --cluster create --cluster-replicas 1 $(kubectl get pods -l app=redis-cluster -o jsonpath='{range.items[*]}{.status.podIP}:6379 {end}')
 
+When asked accept
+	terminal --> yes
 
-
+	
+- click 'Çheck' button
 
 
 
