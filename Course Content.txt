@@ -86,7 +86,7 @@ Section 6 99. Deployment Strategy - Blue Green
 Section 6 100. Deployment Strategy - Canary
 Section 6 102. Practice Test - Deployment Strategies
 Section 6 103. Jobs
-Section 6 104. CornJobs
+Section 6 104. CronJobs
 Section 6 106. Practice Test - Jobs and CornJobs
 
 
@@ -108,11 +108,11 @@ Section 7 121. Practice Test - Network Policies
 Section 8 State Persistance
 ===========================
 Section 8 122. Volumes
-Section 8 123. Persistent VolumesSection 8 124. Persistent Volume Claims
+Section 8 123. Persistent Volumes
+Section 8 124. Persistent Volume Claims
 Section 8 125. Using PVC in Pods
 Section 8 xxx. Volumes Quiz
 Section 8 127. Practice Test - Persistent Volumes
-Section 8 128. Note on optional topics
 Section 8 129. Storage Classes
 Section 8 130. Practice Test - Storage Class
 Section 8 131. Why Stateful Sets?
@@ -157,31 +157,60 @@ Section 10 168. Helm Concepts
 Section 10 170. Labs - Helm Concepts
 
 
-Section 11 Kubernetes Challanges
+Section 11 Kustomize Basics
+===========================
+Section 11 171. Kustomize Problem Statement and Ideology
+Section 11 172. Kustomize VS Helm
+Section 11 173. Installation/Setup
+Section 11 174. kustomization.yaml file
+Section 11 175. Kustomize Output
+Section 11 176. Kustomize ApiVersion & Kind
+Section 11 177. Managing Directories
+Section 11 178. Managing Directories Demo
+Section 11 179. Lab Managing Directories
+Section 11 180. Common Transformers
+Section 11 181. Image Transformers
+Section 11 182. Transformers Demo
+Section 11 183. Lab Transformers
+Section 11 184. Patches Intro
+Section 11 185. Different Types of Patches
+Section 11 186. Patches Directory
+Section 11 187. Patches List
+Section 11 188. Lab Patches
+Section 11 189. Overlays
+Section 11 190. Lab Overlays
+Section 11 191. Components
+Section 11 192. Lab Components
+
+
+Section 12 Kubernetes Challanges
 ================================
-Section 11 171. Kubernetes Challanges
+Section 12 171. Kubernetes Challanges
+Challenge 1
+Challenge 2
+Challenge 3
+Challenge 4
 
-
-Section 12 Certification Tips
+Section 13 Certification Tips
 =============================
-Section 12 172. Time Management
-Section 12 173. Additional Tips
+Section 13 172. Time Management
+Section 13 173. Additional Tips
 
 
-Section 13 Lighring Labs
+Section 14 Lighring Labs
 ========================
-Section 13 174. Introduction Lighting Labs
-Section 13 176. Lighting Lab - 1
-Section 13 178. Lighting Lab - 2
+Section 14 174. Introduction Lighting Labs
+Section 14 176. Lighting Lab - 1
+Section 14 178. Lighting Lab - 2
 
 
 Section 14 Mock Exams
 =====================
-Section 14 179. Mock Exam 1
-Section 14 181. Mock Exam 2
-Section 14 183. Bonus Lecture: Conclusion
-Section 14 184. Register for Certification
-Section 14 185. Kubernetes Update and Project Videos - Your Essential Guide
+Section 15 179. Mock Exam 1
+Section 15 181. Mock Exam 2
+Section 15 184. Register for Certification
+Section 15 185. Kubernetes Update and Project Videos - Your Essential Guide
+
 
 
 
